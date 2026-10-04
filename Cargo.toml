@@ -154,10 +154,11 @@ png = "0.18"
 demo = []
 
 [profile.release]
-lto = "thin"
-codegen-units = 1
-strip = true
+lto = false
+codegen-units = 16
+strip = false
 panic = "abort"
+opt-level = 2
 
 # Optimize dependencies in development for usable decryption and UI layout.
 # Keep the application crate incremental.

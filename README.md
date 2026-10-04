@@ -8,16 +8,40 @@ companion device, and has no browser engine. In our Linux test, it opened in
 under a second and used about 150 MB of idle RAM, compared with 1.13 GB for
 WhatsApp Web and its Chromium processes. [See the measurements](https://zapfast.rocks/benchmarks/).
 
-ZapFast is a sibling of [Spotifast](https://spotifast.rocks),
-with the same native UI for a different service.
-
-![ZapFast showing a conversation with an attachment, voice messages, reactions, a quoted reply, and a link preview](docs/screenshot.png)
+**Want Spotify just as fast and native?** [Spotifast](https://spotifast.rocks)
+is ZapFast's sibling: the same native interface, for Spotify. Both are built
+on [fastframe](https://github.com/crmne/fastframe), the shared foundation for
+native Rust apps built with egui.
 
 See **[zapfast.rocks](https://zapfast.rocks)** for downloads and guides.
+
+![ZapFast showing a conversation with an attachment, voice messages, reactions, a quoted reply, and a link preview](docs/screenshot.png)
 
 ![A titled group chat with participant names, reactions, a quoted mention, and a poll](docs/screenshot-group.png)
 
 ![The linking screen with the QR code](docs/screenshot-link.png)
+
+---
+
+## About this fork
+
+**This is abhinavdatta's fork of ZapFast.** The original ZapFast project was created and is maintained by the
+[original ZapFast development team](https://github.com/crmne/zapfast) (lead developer: crmne).
+This fork adds several features beyond the upstream v0.19.0 release:
+
+### Added features in this fork
+
+- **Status tab** — View and play status updates from contacts, with full-screen story viewer, per-update progress dots, click-to-advance, arrow-key paging, and swipe gestures.
+- **Channels tab** — Browse followed newsletter channels in a dedicated page, separate from the main chat list.
+- **Communities tab** — View communities with their linked groups, organized under community headers.
+- **Image viewer with gallery navigation** — Click photos to preview in-app with fit/zoom/100% controls, swipe gestures between pictures, edge arrows for navigation, and arrow-key paging across the chat's entire image gallery.
+- **Photo editor with undo/redo** — Edit photos before sending: rotate left/right, flip horizontally/vertically, with step-by-step undo (Ctrl+Z) and redo (Ctrl+Shift+Z), like WhatsApp's editor.
+- **PDF viewer** — Open PDF attachments in the built-in viewer with fit, zoom controls, and keyboard shortcuts when Pdfium is available.
+- **Sidebar collapse fix** — Fixed a bug where collapsing the sidebar would cause issues with tab navigation.
+
+The base code is based on **ZapFast v0.19.0** (upstream release), with local features backported and integrated.
+
+---
 
 ## What it does
 
@@ -99,7 +123,8 @@ See **[zapfast.rocks](https://zapfast.rocks)** for downloads and guides.
   and copy-code actions. Short carousels keep the timestamp beside their last
   card. When more cards are offscreen, overlaid previous/next arrows move one
   card at a time. **Shift + mouse wheel** and horizontal touchpad scrolling also
-  work over the cards, without a bottom scrollbar. Their text can be selected, copied, and searched.
+  work over the cards, without a bottom scrollbar. Their text can be selected,
+  copied, and searched.
   Images use the same download, retry, and automatic-download setting as photos.
   Previously unsupported messages are recovered from the local archive when their
   original message is available and they have not been edited, without relinking.
@@ -156,8 +181,7 @@ See **[zapfast.rocks](https://zapfast.rocks)** for downloads and guides.
   on click. Photos, stickers, GIFs, voice messages, audio, locations, contacts,
   polls, and link previews appear in the chat. Click a downloaded JPEG, PNG,
   WebP, or GIF photo to preview it in ZapFast with fit and zoom controls, or
-  choose **Open externally**. Unsupported pictures, videos, and documents keep
-  opening in their default desktop apps. **Save as…** in a downloaded
+  choose **Open externally**. **Save as…** in a downloaded
   attachment's right-click menu keeps a copy wherever you choose, starting in
   your Downloads folder. Profile pictures and downloaded images support
   Windows drive paths and filenames with spaces or non-ASCII characters.
@@ -197,8 +221,8 @@ See **[zapfast.rocks](https://zapfast.rocks)** for downloads and guides.
   join request when admins approve members) without leaving ZapFast.
 - **Presence.** See online, last-seen, and typing status, and send your typing
   status. Like WhatsApp Web, ZapFast shows you as online only while its window
-  is focused, and goes offline ten seconds after you switch away or hide it to
-  the tray, so your phone keeps receiving notifications meanwhile.
+  is focused, and goes offline ten seconds after you switch away or hide it
+  to the tray, so your phone keeps receiving notifications meanwhile.
 - **Idle rendering.** History-sync progress updates when data arrives. Animated
   stickers and GIFs show a still first frame and play while hovered in the
   focused window, keeping idle conversations from continuously repainting.
@@ -259,246 +283,58 @@ See **[zapfast.rocks](https://zapfast.rocks)** for downloads and guides.
 
 - Play ordinary videos in the app (they open in your player), or reply to
   a message with an attachment.
-- Calls, status posts, communities, newsletters, and group administration.
+- Calls, status posts (send your own status), communities creation, newsletters, and group administration.
 - Submit interactive forms, payments, shopping flows, or carousel selections.
   Use these in WhatsApp Web or on your phone. Embedded videos and documents,
   and templates without readable text also need another client.
 
-## Installing
+---
 
-On macOS with Homebrew: `brew install --cask crmne/tap/zapfast`.
+## Status, channels, and communities (this fork)
 
-ZapFast was previously called FastsApp. Version 0.13.0 introduces the new
-package and executable names. On Arch Linux:
+The navigation rail includes **Status**, **Channels**, and **Communities** tabs:
 
-```sh
-yay -S zapfast-bin      # the released build, ready made
-yay -S zapfast          # the release, built from source
-yay -S zapfast-git      # built from the latest commit
-```
+- **Status** — View status updates from your contacts. Updates arrive
+  through the normal message pipeline as the `status@broadcast` chat and are listed
+  newest first; opening one plays that contact's photos, videos, and text in a
+  full-screen viewer with per-update progress dots, click-to-advance, arrow-key
+  paging, and Esc to close.
 
-With [Nix](https://nixos.org), install the package directly from its flake:
+- **Channels** — Lists the newsletters you follow, separate from the main chat list.
 
-```sh
-nix profile install github:crmne/zapfast
-```
+- **Communities** — Groups a community's announcement channel and its linked
+  groups together. Opening a channel or community conversation keeps its roster visible
+  beside the chat.
 
-NixOS configurations can add the repository as a flake input and include
-`inputs.zapfast.packages.${pkgs.system}.default` in
-`environment.systemPackages`.
+### Image viewer and gallery navigation (this fork)
 
-Builds for every release are on the
-[releases page](https://github.com/crmne/zapfast/releases):
+Images in chats open in the built-in viewer with:
+- Fit, zoom, and 100% controls
+- Arrow-key paging across the chat's image gallery
+- On-screen edge arrows for previous/next navigation
+- Swipe gestures across every downloaded picture of the open chat
 
-| Platform | File |
-| --- | --- |
-| Linux x86_64 and arm64 | `zapfast-vX.Y.Z-<target>.tar.gz`, with the desktop file and icon in `packaging/` |
-| Windows x64 and arm64 | `zapfast-vX.Y.Z-<target>-setup.exe` (no administrator rights needed), or the `.zip` |
-| macOS, universal | `zapfast-vX.Y.Z-macos-universal.dmg` |
+### Photo editor with undo/redo (this fork)
 
-On macOS, the rounded Dock icon matches the app bundle. Native menus provide
-Settings, editing, search, view controls, and window commands. The traffic
-lights share the chat header, leaving more room for conversations in a normal
-window. Settings is also available with `⌘,`.
+Pictures can be edited before sending — from the attachment tray's pencil button, a photo message's "Edit photo" menu
+item, or the viewer's edit button — with:
+- WhatsApp-style rotate and flip edits
+- Step-by-step undo (Ctrl+Z) and redo (Ctrl+Shift+Z)
+- Re-editing of previously sent or staged pictures
+- Unedited pictures send the original file untouched
 
-The macOS release process signs the app with Developer ID, submits the DMG
-to Apple's notarization service, and staples and validates its ticket before
-publishing. Open the DMG and drag **ZapFast** to Applications.
-When upgrading from FastsApp on macOS, quit the old app and remove its
-application bundle after installing ZapFast.
+### PDF viewer (this fork)
 
-Releases before 0.13.0 keep their original FastsApp filenames.
-
-### Flatpak
-
-Flatpak packaging lives in `packaging/flatpak/`, following Spotifast's source
-manifest and release-bundle setup. Future releases will attach an x86_64
-`.flatpak` bundle; install a downloaded bundle with `flatpak install --user FILE`
-and run `flatpak run rocks.zapfast.ZapFast`. Flathub publication is pending;
-ZapFast is not yet listed there. See [PACKAGING.md](PACKAGING.md) for local builds
-and preparing a Flathub submission. File selection uses desktop portals;
-the sandbox has no general access to your home directory.
-
-### Archive encryption
-
-The archive key is a random 256-bit secret in Secret Service on Linux, Keychain
-on macOS, or Windows Credential Manager. Linux needs a working Secret Service
-provider (for example GNOME Keyring or KeePassXC with Secret Service enabled).
-If the keyring is locked or unavailable, unlock it and click Retry; ZapFast keeps
-its archive intact and waits before connecting. It never saves a replacement
-plaintext archive. Back up both the archive and its OS keyring key: copying only
-`archive.db` to another computer is insufficient.
-
-A missing key is different from a locked keyring. If ZapFast says the key is
-missing, restore the original OS credential store or use the original profile
-location. Do not delete the archive or create replacement credentials: neither
-can decrypt the existing archive. If the original key cannot come back,
-**Start over…** on that screen renames the unreadable archive to
-`archive-unreadable-<date>.db` beside it, forgets the linked session, and
-shows the linking screen: linking again brings recent history back from your
-phone. Remove the old ZapFast entry under Linked devices on the phone
-afterwards. For help, report the OS, app version, whether
-the profile was moved/restored, and the error text with personal paths removed.
-Never attach the archive, keys, or full logs from older releases.
-
-Only `archive.db` and its SQLite journal/WAL are encrypted. Device credentials in
-`session.db`, downloaded media, profile pictures, saved sticker files and settings
-remain ordinary files. Use full-disk encryption for those files, swap, backups and
-remnants of the old plaintext archive. Migration removes the original only after
-verifying its encrypted copy; deletion cannot guarantee erasure from SSDs or
-snapshots. Keyring unlocking also does not protect against software running as you
-while your login is unlocked.
-
-### From source
-
-ZapFast needs Rust, a C/C++ toolchain, CMake and Perl (for bundled OpenSSL). `rust-toolchain.toml` pins the exact version. On Linux,
-it also needs GUI development packages:
-
-```sh
-# Debian and Ubuntu
-sudo apt install libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl
-# Arch
-sudo pacman -S libxkbcommon wayland mesa alsa-lib cmake perl
-```
-
-Then:
-
-```sh
-cargo install --path .
-zapfast
-```
-
-With Nix, `nix develop` provides the pinned Rust toolchain and all native build
-dependencies. From the checkout, use `nix build .#zapfast` to build the package
-or `nix run .#zapfast` to run it.
-
-The desktop file and icon are in `packaging/`.
-
-`whatsapp-rust` is pinned to a Git commit because version 0.7.0 on crates.io
-enables a `simd` feature that needs nightly Rust. The pinned commit builds on
-stable Rust and includes the upstream fixes for missing app-state snapshots and
-conflicts that make no progress. ZapFast does not reset your session to recover
-a collection.
-
-## Using it
-
-On first start, scan the QR code from WhatsApp under **Linked devices**,
-**Link a device**. To link without the camera, click **Link with phone number
-instead**, enter your number with its country code, then enter the shown code
-on your phone.
-
-WhatsApp then sends your recent history. This can take a few minutes. A banner
-shows the progress. New messages arrive live, and your phone does not need to
-stay on the same network.
-
-Right-click a chat or message to open its menu. Double-click beside a message,
-or on its edge, to reply to it (a double-click on its text still selects the
-word). Open Settings from the gear or
-with `Ctrl+,`. The pencil opens **New chat**, with **Message yourself** and
-**+ Add contact** at the top, followed by searchable contacts. Add contact also
-lets you message a new number without saving it. You
-can also open a group member's contact card. Saved names sync through WhatsApp
-to your phone and linked devices.
-
-### Locked chats
-
-**Lock chat** in a chat's right-click menu moves the chat into a locked
-folder: it disappears from the chat list, search, and the unread badge, and
-its messages never raise a desktop notification. The lock state syncs
-with your phone and other linked devices.
-
-Choose **Locked** beside the other chat filters, type your local code, and press
-Enter or choose **Open locked chats**.
-The tab appears when locked chats exist, without a count or names before opening.
-If no local code exists, it offers to set one up. The local code is separate
-from your phone's code and is a visibility control, not an extra encryption layer.
-Search inside the open tab filters its chats. Leaving it, changing or clearing
-the code in Settings, or closing the window hides the locked chats and closes
-any open locked conversation. Typing the code into ordinary search remains
-an alternative way in. Revealed locked chats are currently read-only:
-sending messages and forwarding into them remain disabled.
-
-After linking or upgrading, chats wait up to ten seconds for WhatsApp's lock
-state before appearing. Chats already known to be locked stay hidden. If the
-lock state cannot be confirmed in time, the chats appear with a notice that
-chats locked on the phone may show until they sync, and recovery keeps retrying
-in the background. The recovered state is saved in the encrypted archive for
-offline use.
-
-Protocol logs omit private payloads and raw error details, including verbose
-logging. Panic logs record the source location without the panic payload.
-Pairing signature failures and rate limits retain a diagnostic category.
-
-Offline previews for these states use `--demo --demo-page channel`,
-`--demo --demo-page locked`, `--demo --demo-page locked-open`, and
-`--demo --demo-page keyring`. The open locked-folder preview uses `demo-code`.
-Use `--demo-page locked-prompt`, `locked-setup`, `new-chat`, `unnamed-group`,
-or `react-picker` for the new dialogs, shared group summaries, and reactions.
-
-The protocol dependency includes the upstream WhatsApp Business pairing fix.
-Device-store migration waits until an updated window is acknowledged, preserving
-startup rollback; an unused legacy column is retained for 0.14 compatibility.
-
-### Interactive messages
-
-Business messages keep their image, formatted text, timestamp, and options
-together in one bubble. Reply buttons immediately send the selected response,
-quoting the original message so the business can recognize your choice. Simple
-list buttons open a centered dialog with sections, descriptions, and a full-row
-selection target; choosing an item sends that response. Hover highlights
-the full action row, following the card edges. Link buttons
-open your browser, and copy-code buttons copy the offered code locally.
-
-Carousels retain separate cards and images in a horizontally scrollable strip.
-Each card can open web links or copy codes; reply, calling, and shopping actions
-that require an unsupported carousel envelope stay unavailable.
-
-Reply buttons require a connection and a writable conversation. They pause while
-sending, and become available again if the send fails. Actions with a phone icon
-are unavailable in ZapFast; use WhatsApp Web or your phone. Hovering explains
-which restriction applies. Replies from other devices retain their quotes too.
-
-| Text and reply options | Image and website link |
-| --- | --- |
-| ![Offline demo of an interactive text message with separate option rows and a quoted reply](docs/screenshot-interactive.png) | ![Offline demo of an interactive image message with working reply options and an active website link](docs/screenshot-interactive-media.png) |
-
-![Offline demo with a reply button, a session list, a copy-code action, and an unavailable form](docs/screenshot-interactive-actions.png)
-
-| Carousel cards | Poll participant details |
-| --- | --- |
-| ![Synthetic carousel with independent images, copy-code and web actions](docs/screenshot-carousel.png) | ![Synthetic poll results listing voters and vote times](docs/screenshot-poll-results.png) |
-
-These screenshots use synthetic offline chats. See the
-[usage guide](https://zapfast.rocks/using-zapfast/#interactive-messages) for
-download behavior and the remaining limitations.
-
-### Status, channels, and communities
-
-The navigation rail matches WhatsApp Web: **Chats**, **Status**, **Channels**,
-and **Communities**, with unread counts on the tabs. Status updates arrive
-through the normal message pipeline as the `status@broadcast` chat and are listed
-newest first; opening one plays that contact's photos, videos, and text in a
-full-screen viewer with per-update progress dots, click-to-advance, arrow-key
-paging, and Esc to close. The Channels page lists the newsletters you follow, and
-the Communities page groups a community's announcement channel and its linked
-groups together. Neither list replaces the chat list, which returns on the Chats
-page. Opening a channel or community conversation keeps its roster visible
-beside the chat, as WhatsApp Web does, instead of jumping back to Chats.
-
-Images in chats open in the built-in viewer with fit, zoom, and 100% controls,
-arrow-key paging, on-screen edge arrows, and swipe gestures across every
-downloaded picture of the open chat. Pictures can be edited before sending —
-from the attachment tray's pencil button, a photo message's "Edit photo" menu
-item, or the viewer's edit button — with WhatsApp-style rotate and flip edits,
-step-by-step undo (Ctrl+Z) and redo, and re-editing of previously sent or staged
-pictures; unedited pictures send the original file untouched. PDF
-attachments open in the built-in viewer with the same controls when a `pdfium`
+PDF attachments open in the built-in viewer with the same controls when a `pdfium`
 library is available: ZapFast loads `pdfium.dll` (Windows), `libpdfium.dylib`
 (macOS), or `libpdfium.so` (Linux) at runtime from the executable's directory or
 the system library path, so nothing extra is needed to build or install.
 Without it, the viewer offers **Open externally** and hands the document to your
 desktop PDF reader.
-### Interface language
+
+---
+
+## Interface language
 
 **Settings > Appearance > Language** chooses the interface language. **Auto**
 follows the operating system's language and falls back to English when ZapFast
@@ -508,6 +344,8 @@ Settings section titles, and dates. Translations are compiled from gettext PO
 files at build time, with no runtime parsing or network access. Message
 contents, contact names, logs, and protocol errors are never translated, and
 copied messages keep WhatsApp's `[time, date] Name:` format.
+
+---
 
 ## Files
 
@@ -562,12 +400,7 @@ background colour in place. Light and dark selections are stored independently,
 and the embedded SVG is rendered at its native size and repeated across the
 conversation without stretching.
 
-On Omarchy, **Follow system** and **Omarchy** read the active desktop palette and
-follow its changes in native, portable, and source builds, even without installed
-hooks. Other desktops keep their normal light/dark system preference. Native
-packages additionally register a missing per-user template and theme hook on
-first launch; existing user files are preserved. Flatpak uses the desktop's
-light/dark preference and does not read host theme files or install desktop hooks.
+---
 
 ### Updating ZapFast
 
@@ -589,6 +422,8 @@ and the macOS app in Applications. Keep `zapfast-portable.txt` beside a portable
 executable. AUR, DEB, RPM, Flatpak, Cargo and Homebrew installations use their
 package manager. Older portable downloads without the marker need one manual
 upgrade. No account or additional service is needed.
+
+---
 
 ## Developing
 
@@ -686,15 +521,38 @@ a silent H.264 MP4. It requires `ffmpeg` with libass support and `ffprobe`.
 These annotations are added during video export, not drawn by the app. The
 trace contains only pointer coordinates and shortcut labels, not typed text.
 
+---
+
 ## Disclaimer
 
 ZapFast is an unofficial client and is not affiliated with WhatsApp or
 Meta. Using an unofficial client may be against WhatsApp's terms of service
 and could get an account suspended. Use it at your own risk.
 
+---
+
+## Credits
+
+**ZapFast** was created and is primarily developed by the [original ZapFast team](https://github.com/crmne/zapfast), led by crmne.
+
+**This fork (abhinavdatta/zapfast)** adds:
+- Status tab with full-screen story viewer
+- Channels tab for followed newsletters
+- Communities tab with linked groups
+- Image viewer with gallery navigation (swipe, arrows, arrow keys)
+- Photo editor with rotate/flip and undo/redo (Ctrl+Z, Ctrl+Shift+Z)
+- PDF viewer with fit/zoom controls
+- Sidebar collapse bug fix
+
+The base application, protocol integration, and core features are from the original ZapFast project.
+
+---
+
 ## Packaging maintenance
 
 Release packaging uses the [native-packages](https://rubygems.org/gems/native-packages) gem. macOS release builds automatically sign and notarize when the Apple CI credentials are configured. `native-packages.yaml` declares packages and downstream repositories; native recipes and installation assets live in `packaging/`; see [PACKAGING.md](PACKAGING.md) for local commands and CI behavior.
+
+---
 
 ## License
 
