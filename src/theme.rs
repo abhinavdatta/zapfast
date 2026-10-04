@@ -5,57 +5,12 @@
 
 use egui::{Color32, CornerRadius, Response, Sense, Stroke, Vec2};
 
-/// A local JSON palette, known by its filename in the themes directory.
-pub type CustomTheme = fastframe_theme::CustomTheme<Palette>;
-
-/// The palettes Settings offers: local files, the shared presets, and on
-/// Linux the live Omarchy palette.
-pub type Catalog = fastframe_theme::Catalog<Palette>;
-
-/// What a normal launch adds to the catalogue. Demos and tests leave it out
-/// and stay isolated from the desktop and its files.
-pub const DESKTOP_THEMES: fastframe_theme::DesktopThemes = fastframe_theme::DesktopThemes {
-    slug: "zapfast",
-    omarchy_template: include_str!("../contrib/omarchy/zapfast.json.tpl"),
-    // Every template ZapFast shipped before, so an untouched copy installed
-    // by an older release is replaced with the current one.
-    omarchy_previous_templates: &[include_str!(
-        "../contrib/omarchy/previous/zapfast-1.json.tpl"
-    )],
-    presets: true,
-};
-
-/// The shared palettes, as ZapFast reads them.
-pub fn presets() -> impl Iterator<Item = CustomTheme> {
-    fastframe_theme::presets::themes::<Palette>()
-}
-
-/// What the theme setting says under it while the catalogue loads or when
-/// something went wrong.
-pub fn theme_status(status: fastframe_theme::Status) -> &'static str {
-    use fastframe_theme::{Problem, Status};
-    match status {
-        Status::Loading => "Loading local themes…",
-        Status::SelectedUnavailable => {
-            "The selected theme is unavailable. Keeping the last usable appearance. See the log for details."
-        }
-        Status::Problem(Problem::Unreadable) => {
-            "The themes folder could not be read. See the log for details."
-        }
-        Status::Problem(Problem::TooManyEntries) => {
-            "The themes folder has more than 512 entries. Keep fewer files there to list the custom palettes."
-        }
-        Status::Problem(Problem::TooManyThemes) => {
-            "Only 128 custom palettes can be listed. Keep fewer JSON files in the themes folder to see the rest."
-        }
-        Status::Problem(Problem::OmarchyUnreadable) => {
-            "The Omarchy palette could not be loaded. Keeping the last usable appearance. See the log for details."
-        }
-        Status::Problem(Problem::LoaderFailed | _) => {
-            "Custom themes could not be loaded. Run zapfast reload-themes to try again."
-        }
-    }
-}
+pub mod custom;
+#[cfg(target_os = "linux")]
+mod omarchy;
+pub(crate) mod presets;
+#[cfg(target_os = "linux")]
+mod watch;
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Palette {
@@ -139,7 +94,7 @@ impl Palette {
             danger: Color32::from_rgb(0xea, 0x00, 0x38),
             warning: Color32::from_rgb(0xa0, 0x6b, 0x00),
             overlay: Color32::from_rgb(0xff, 0xff, 0xff),
-            shadow: Color32::from_black_alpha(LIGHT_SHADOW_ALPHA),
+            shadow: Color32::from_black_alpha(50),
             chat: Color32::from_rgb(0xef, 0xea, 0xe2),
             bubble_in: Color32::from_rgb(0xff, 0xff, 0xff),
             bubble_out: Color32::from_rgb(0xd9, 0xfd, 0xd3),
@@ -164,63 +119,6 @@ impl Palette {
         }
     }
 
-    /// The soft shadow that lifts message bubbles and date chips off the
-    /// wallpaper: two points down with a short blur, a little denser than
-    /// the palette's own shadow colour, so custom themes steer it. A shadow
-    /// alone barely darkens a dark chat; [`Palette::raised_edge`] lights
-    /// the top as well.
-    pub fn bubble_shadow(&self) -> egui::epaint::Shadow {
-        egui::epaint::Shadow {
-            offset: [0, 2],
-            blur: 6,
-            spread: 0,
-            color: denser(self.lift_shadow(), SHADOW_DENSITY),
-        }
-    }
-
-    /// The shadow under a surface that floats over the window for a moment:
-    /// menus, toasts, the emoji picker, and egui's own popups.
-    pub fn float_shadow(&self) -> egui::epaint::Shadow {
-        egui::epaint::Shadow {
-            offset: [0, 6],
-            blur: 20,
-            spread: 0,
-            color: self.shadow,
-        }
-    }
-
-    /// The deeper shadow under a modal surface that holds the window until
-    /// it closes: dialogs, the update dialog, and the image preview.
-    pub fn modal_shadow(&self) -> egui::epaint::Shadow {
-        egui::epaint::Shadow {
-            offset: [0, 12],
-            blur: 40,
-            spread: 0,
-            color: self.shadow,
-        }
-    }
-
-    /// The palette's shadow colour, no heavier than the light theme's: a
-    /// dark palette's own shadow is meant for popups and menus, and under
-    /// every bubble it weighed on an otherwise flat theme.
-    pub fn lift_shadow(&self) -> Color32 {
-        let [r, g, b, a] = self.shadow.to_srgba_unmultiplied();
-        Color32::from_rgba_unmultiplied(r, g, b, a.min(LIGHT_SHADOW_ALPHA))
-    }
-
-    /// The faint light along the top edge of a raised surface of colour
-    /// `fill`. In a dark theme the fill moves a little toward the text
-    /// colour, so it follows every dark palette, mid-dark ones included; in
-    /// a light one, where the text is dark, it moves toward white instead,
-    /// which shows on tinted surfaces and vanishes on white ones.
-    pub fn raised_edge(&self, fill: Color32) -> Color32 {
-        if self.dark {
-            fill.lerp_to_gamma(self.text, DARK_EDGE_TINT)
-        } else {
-            fill.lerp_to_gamma(Color32::WHITE, LIGHT_EDGE_TINT)
-        }
-    }
-
     /// Group-sender color derived from the avatar hue.
     pub fn sender(&self, hue: f32) -> Color32 {
         if self.dark {
@@ -239,89 +137,6 @@ impl Palette {
         };
         hsl(hue, saturation, lightness)
     }
-}
-
-impl fastframe_theme::Palette for Palette {
-    fn base(base: fastframe_theme::Base) -> Self {
-        match base {
-            fastframe_theme::Base::Dark => Self::dark(),
-            fastframe_theme::Base::Light => Self::light(),
-        }
-    }
-
-    fn set(&mut self, name: &str, color: Color32) -> bool {
-        match name {
-            "window" => self.window = color,
-            "panel" => self.panel = color,
-            "surface" => self.surface = color,
-            "surface_hover" => self.surface_hover = color,
-            "surface_active" => self.surface_active = color,
-            "outline" => self.outline = color,
-            "text" => self.text = color,
-            "secondary" => self.secondary = color,
-            "dim" => self.dim = color,
-            "accent" => self.accent = color,
-            "accent_hover" => self.accent_hover = color,
-            "on_accent" => self.on_accent = color,
-            "danger" => self.danger = color,
-            "warning" => self.warning = color,
-            "overlay" => self.overlay = color,
-            "shadow" => self.shadow = color,
-            "chat" => self.chat = color,
-            "bubble_in" => self.bubble_in = color,
-            "bubble_out" => self.bubble_out = color,
-            "link" => self.link = color,
-            "read" => self.read = color,
-            _ => return false,
-        }
-        true
-    }
-
-    /// Spotifast palettes share the sixteen interface colours. Derive the
-    /// chat-only colours when importing one, while keeping explicit ZapFast
-    /// overrides.
-    fn derive(&mut self, given: &std::collections::BTreeSet<&str>) {
-        if given.contains("window") && !given.contains("chat") {
-            self.chat = self.window;
-        }
-        // Bubbles stand a little further from the chat than the interface's
-        // surfaces do, keeping text on them at 4.5:1 in every shared palette.
-        if given.contains("surface") && !given.contains("bubble_in") {
-            self.bubble_in = self.surface.lerp_to_gamma(self.text, 0.05);
-        }
-        if given.contains("accent") {
-            if !given.contains("bubble_out") {
-                self.bubble_out = self.surface.lerp_to_gamma(self.accent, 0.24);
-            }
-            if !given.contains("link") {
-                self.link = self.accent;
-            }
-            if !given.contains("read") {
-                self.read = self.accent;
-            }
-        }
-        if given.contains("panel") && !given.contains("overlay") {
-            self.overlay = self.panel;
-        }
-    }
-}
-
-/// How much denser than the palette's shadow colour a bubble's shadow is.
-const SHADOW_DENSITY: f32 = 1.04;
-/// How far a dark theme's raised edge moves from the surface toward the text.
-const DARK_EDGE_TINT: f32 = 0.128;
-/// The light palette's shadow opacity, the most a raised surface casts.
-const LIGHT_SHADOW_ALPHA: u8 = 50;
-/// How far a light theme's raised edge moves from the surface toward white.
-const LIGHT_EDGE_TINT: f32 = 0.48;
-/// How thick the raised edge is, in points.
-pub const RAISED_EDGE: f32 = 1.0;
-
-/// `color` with its opacity scaled by `factor`, up to opaque.
-fn denser(color: Color32, factor: f32) -> Color32 {
-    let [r, g, b, a] = color.to_srgba_unmultiplied();
-    let alpha = (f32::from(a) * factor).round().clamp(0.0, 255.0) as u8;
-    Color32::from_rgba_unmultiplied(r, g, b, alpha)
 }
 
 /// Converts HSL to color bytes for non-egui drawing.
@@ -353,40 +168,31 @@ pub const FOCUS_STROKE_WIDTH: f32 = 1.0;
 pub const ROW_HEIGHT: f32 = 68.0;
 pub const TOP_BAR_HEIGHT: f32 = 60.0;
 
+const INTER_MEDIUM: &str = "inter-medium";
+const INTER_SEMIBOLD: &str = "inter-semibold";
+const INTER_BOLD: &str = "inter-bold";
+
 pub fn regular(size: f32) -> egui::FontId {
-    fastframe_fonts::Weight::Regular.font_id(size)
+    egui::FontId::new(size, egui::FontFamily::Proportional)
 }
 
 pub fn medium(size: f32) -> egui::FontId {
-    fastframe_fonts::Weight::Medium.font_id(size)
+    egui::FontId::new(size, egui::FontFamily::Name(INTER_MEDIUM.into()))
 }
 
 pub fn semibold(size: f32) -> egui::FontId {
-    fastframe_fonts::Weight::SemiBold.font_id(size)
+    egui::FontId::new(size, egui::FontFamily::Name(INTER_SEMIBOLD.into()))
 }
 
 pub fn bold(size: f32) -> egui::FontId {
-    fastframe_fonts::Weight::Bold.font_id(size)
-}
-
-/// The face for counting timers (recording, playback positions): Inter at
-/// `weight`, whose figures are all one width, so a timer does not shift as
-/// it counts. San Francisco and Segoe UI draw proportional figures.
-pub fn tabular(weight: fastframe_fonts::Weight, size: f32) -> egui::FontId {
-    egui::FontId::new(size, tabular_family(weight))
-}
-
-fn tabular_family(weight: fastframe_fonts::Weight) -> egui::FontFamily {
-    egui::FontFamily::Name(format!("zapfast-tabular-{}", weight.name()).into())
+    egui::FontId::new(size, egui::FontFamily::Name(INTER_BOLD.into()))
 }
 
 /// Installs fonts, icons, and base style.
 pub fn install(ctx: &egui::Context) {
     install_fonts(ctx);
+    register_icons(ctx);
     egui_extras::install_image_loaders(ctx);
-    // Served by a loader that never forgets them, so `reduce_texture_memory`
-    // below cannot leave an icon drawn at two sizes without bytes.
-    fastframe_icons::install::<Icon>(ctx);
     // Drop the raw bytes and the decoded pixels once a texture is on the GPU.
     // egui keeps all three copies of every image otherwise, and only ever
     // evicts the textures of SVGs.
@@ -403,10 +209,6 @@ pub fn apply(ctx: &egui::Context, palette: &Palette) {
         egui::Visuals::light()
     };
     visuals.dark_mode = palette.dark;
-    // Hinting, sub-pixel positions and glyph coverage as the desktop draws
-    // them. On Linux coverage stays linear in both themes, as FreeType and
-    // cairo draw it; egui's dark curve (2c - c²) made text heavier than GTK's.
-    text_rendering().apply_to_visuals(visuals);
     visuals.panel_fill = palette.panel;
     visuals.window_fill = palette.overlay;
     visuals.extreme_bg_color = palette.surface;
@@ -420,8 +222,18 @@ pub fn apply(ctx: &egui::Context, palette: &Palette) {
     visuals.window_stroke = Stroke::new(1.0, palette.outline);
     visuals.window_corner_radius = CornerRadius::same(RADIUS + 2);
     visuals.menu_corner_radius = CornerRadius::same(RADIUS);
-    visuals.window_shadow = palette.modal_shadow();
-    visuals.popup_shadow = palette.float_shadow();
+    visuals.window_shadow = egui::epaint::Shadow {
+        offset: [0, 6],
+        blur: 24,
+        spread: 0,
+        color: palette.shadow,
+    };
+    visuals.popup_shadow = egui::epaint::Shadow {
+        offset: [0, 4],
+        blur: 16,
+        spread: 0,
+        color: palette.shadow,
+    };
     let corner = CornerRadius::same(RADIUS_SMALL + 2);
     for widget in [
         &mut visuals.widgets.inactive,
@@ -488,207 +300,282 @@ pub fn apply(ctx: &egui::Context, palette: &Palette) {
     ctx.set_global_style(style);
 }
 
-/// Whether the interface is drawn in the bundled Inter instead of the
-/// platform's font (Settings, Appearance, Font).
-static INTER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-/// Chooses the interface's typeface and installs it. Call it before
-/// [`install`] with the saved choice, and again when the choice changes.
-pub fn set_font(ctx: &egui::Context, font: crate::settings::FontChoice) {
-    let inter = font == crate::settings::FontChoice::Inter;
-    if INTER.swap(inter, std::sync::atomic::Ordering::AcqRel) != inter {
-        install_fonts(ctx);
-    }
-}
-
-/// Whether Inter is the chosen typeface.
-#[cfg(test)]
-pub fn inter_chosen() -> bool {
-    INTER.load(std::sync::atomic::Ordering::Acquire)
-}
-
-/// The typeface the interface is asked to draw with: the setting's, and
-/// always Inter in tests, so layouts do not depend on the machine.
-fn primary_font() -> fastframe_fonts::Primary {
-    if cfg!(test) || INTER.load(std::sync::atomic::Ordering::Acquire) {
-        fastframe_fonts::Primary::Inter
-    } else {
-        fastframe_fonts::Primary::System
-    }
-}
-
-/// The chosen interface font at four weights (the platform's, or Inter
-/// where there is none), egui's own fonts behind it, and installed fonts
-/// for the scripts it lacks, hinted as the desktop asks. Inter also draws
-/// the [`tabular`] timers.
 fn install_fonts(ctx: &egui::Context) {
-    let primary = primary_font();
-    let mut fonts = fastframe_fonts::FontSetup::default()
-        .primary(primary)
-        .definitions();
-    add_tabular(&mut fonts);
-    text_rendering().apply_to(&mut fonts);
+    use egui::epaint::text::VariationCoords;
+    use egui::{FontData, FontDefinitions, FontFamily};
+    use std::sync::Arc;
+
+    let mut fonts = FontDefinitions::default();
+    let inter = include_bytes!("../assets/fonts/InterVariable.ttf");
+    let weighted = |weight: f32| {
+        let mut data = FontData::from_static(inter);
+        data.tweak.coords = VariationCoords::new([(b"wght", weight)]);
+        Arc::new(data)
+    };
+    fonts.font_data.insert("inter".to_owned(), weighted(400.0));
+    fonts
+        .font_data
+        .insert(INTER_MEDIUM.to_owned(), weighted(500.0));
+    fonts
+        .font_data
+        .insert(INTER_SEMIBOLD.to_owned(), weighted(600.0));
+    fonts
+        .font_data
+        .insert(INTER_BOLD.to_owned(), weighted(700.0));
+
+    fonts
+        .families
+        .entry(FontFamily::Proportional)
+        .or_default()
+        .insert(0, "inter".to_owned());
+    let fallbacks: Vec<String> = fonts.families[&FontFamily::Proportional]
+        .iter()
+        .skip(1)
+        .cloned()
+        .collect();
+    for name in [INTER_MEDIUM, INTER_SEMIBOLD, INTER_BOLD] {
+        let mut family = vec![name.to_owned()];
+        family.extend(fallbacks.iter().cloned());
+        fonts.families.insert(FontFamily::Name(name.into()), family);
+    }
+
+    // Append system fallbacks after Inter and emoji fonts.
+    for font in crate::system_fonts::fallbacks() {
+        let mut data = FontData::from_static(&font.bytes);
+        data.index = font.index;
+        data.tweak.scale = font.scale;
+        fonts.font_data.insert(font.name.clone(), Arc::new(data));
+        for family in fonts.families.values_mut() {
+            family.push(font.name.clone());
+        }
+    }
+
     ctx.set_fonts(fonts);
 }
 
-/// Registers Inter at each weight as the [`tabular`] families, each falling
-/// back like the interface family of the same weight.
-fn add_tabular(fonts: &mut egui::FontDefinitions) {
-    use fastframe_fonts::Weight;
-    for weight in Weight::ALL {
-        let name = format!("zapfast-tabular-{}", weight.name());
-        let mut data = egui::FontData::from_static(fastframe_fonts::INTER);
-        data.tweak.coords = egui::epaint::text::VariationCoords::new([(b"wght", weight.value())]);
-        fonts
-            .font_data
-            .insert(name.clone(), std::sync::Arc::new(data));
-        let mut family = vec![name];
-        if let Some(behind) = fonts.families.get(&weight.family()) {
-            family.extend(behind.iter().cloned());
+macro_rules! icons {
+    ($($variant:ident => $file:literal),* $(,)?) => {
+        &[$((
+            Icon::$variant,
+            concat!("bytes://zapfast-icon-", $file, ".svg"),
+            include_bytes!(concat!("../assets/icons/", $file, ".svg")).as_slice(),
+        )),*]
+    };
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum Icon {
+    Activity,
+    Archive,
+    ArrowDown,
+    ArrowLeft,
+    Ban,
+    Bell,
+    BellOff,
+    Camera,
+    Check,
+    CheckCheck,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronUp,
+    ListChecks,
+    CircleAlert,
+    CircleCheck,
+    CircleDashed,
+    CircleX,
+    Clock,
+    Contact,
+    Copy,
+    Download,
+    Globe,
+    Link,
+    ListPlus,
+    Megaphone,
+    PencilLine,
+    Timer,
+    Ellipsis,
+    ExternalLink,
+    Eye,
+    EyeOff,
+    FileText,
+    Forward,
+    Gif,
+    Image,
+    Info,
+    Keyboard,
+    Lock,
+    LockOpen,
+    LogOut,
+    MapPin,
+    Maximize,
+    MessageCircle,
+    Mic,
+    Minimize,
+    Minus,
+    Monitor,
+    Moon,
+    PanelLeft,
+    Paperclip,
+    Pause,
+    Pencil,
+    Phone,
+    Pin,
+    PinOff,
+    Play,
+    Plus,
+    QrCode,
+    Refresh,
+    Reply,
+    Search,
+    Send,
+    Settings,
+    Smartphone,
+    Smile,
+    SquarePen,
+    Sticker,
+    Sun,
+    Trash,
+    User,
+    Users,
+    Video,
+    VolumeX,
+    WifiOff,
+    X,
+}
+
+const ICONS: &[(Icon, &str, &[u8])] = icons! {
+    Activity => "activity",
+    Archive => "archive",
+    ArrowDown => "arrow-down",
+    ArrowLeft => "arrow-left",
+    Ban => "ban",
+    Bell => "bell",
+    BellOff => "bell-off",
+    Camera => "camera",
+    Check => "check",
+    CheckCheck => "check-check",
+    ChevronDown => "chevron-down",
+    ChevronLeft => "chevron-left",
+    ChevronRight => "chevron-right",
+    ChevronUp => "chevron-up",
+    ListChecks => "list-checks",
+    CircleAlert => "circle-alert",
+    CircleCheck => "circle-check",
+    CircleDashed => "circle-dashed",
+    CircleX => "circle-x",
+    Clock => "clock",
+    Contact => "contact",
+    Copy => "copy",
+    Download => "download",
+    Globe => "globe",
+    Link => "link",
+    ListPlus => "list-plus",
+    Megaphone => "megaphone",
+    PencilLine => "pencil-line",
+    Timer => "timer",
+    Ellipsis => "ellipsis",
+    ExternalLink => "external-link",
+    Eye => "eye",
+    EyeOff => "eye-off",
+    FileText => "file-text",
+    Forward => "forward",
+    Gif => "gif",
+    Image => "image",
+    Info => "info",
+    Keyboard => "keyboard",
+    Lock => "lock",
+    LockOpen => "lock-open",
+    LogOut => "log-out",
+    MapPin => "map-pin",
+    Maximize => "maximize-2",
+    MessageCircle => "message-circle",
+    Mic => "mic",
+    Minimize => "minimize-2",
+    Minus => "minus",
+    Monitor => "monitor",
+    Moon => "moon",
+    PanelLeft => "panel-left",
+    Paperclip => "paperclip",
+    Pause => "pause",
+    Pencil => "pencil",
+    Phone => "phone",
+    Pin => "pin",
+    PinOff => "pin-off",
+    Play => "play",
+    Plus => "plus",
+    QrCode => "qr-code",
+    Refresh => "refresh-cw",
+    Reply => "reply",
+    Search => "search",
+    Send => "send",
+    Settings => "settings",
+    Smartphone => "smartphone",
+    Smile => "smile",
+    SquarePen => "square-pen",
+    Sticker => "sticker",
+    Sun => "sun",
+    Trash => "trash-2",
+    User => "user",
+    Users => "users",
+    Video => "video",
+    VolumeX => "volume-x",
+    WifiOff => "wifi-off",
+    X => "x",
+};
+
+impl Icon {
+    pub fn uri(self) -> &'static str {
+        ICONS
+            .iter()
+            .find(|(icon, _, _)| *icon == self)
+            .map_or("", |(_, uri, _)| *uri)
+    }
+
+    pub fn image(self, color: Color32, size: f32) -> egui::Image<'static> {
+        egui::Image::new(self.uri())
+            .tint(color)
+            .fit_to_exact_size(Vec2::splat(size))
+    }
+}
+
+/// Serves the embedded icon SVGs for the life of the context.
+///
+/// `reduce_texture_memory` makes egui drop an image's bytes once its texture
+/// is uploaded. An icon drawn at more than one size loses that texture when
+/// egui prunes the extra size variants, and with the bytes gone the next draw
+/// finds neither and paints egui's red "failed" placeholder. A loader whose
+/// `forget` does nothing keeps them: the icons are small SVGs, so holding
+/// them costs nothing next to a single photo.
+struct IconBytes;
+
+impl egui::load::BytesLoader for IconBytes {
+    fn id(&self) -> &str {
+        egui::generate_loader_id!(IconBytes)
+    }
+
+    fn load(&self, _: &egui::Context, uri: &str) -> egui::load::BytesLoadResult {
+        match ICONS.iter().find(|(_, icon, _)| *icon == uri) {
+            Some((_, _, bytes)) => Ok(egui::load::BytesPoll::Ready {
+                size: None,
+                bytes: (*bytes).into(),
+                mime: Some("image/svg+xml".to_owned()),
+            }),
+            None => Err(egui::load::LoadError::NotSupported),
         }
-        fonts.families.insert(tabular_family(weight), family);
+    }
+
+    fn forget(&self, _uri: &str) {}
+
+    fn forget_all(&self) {}
+
+    fn byte_size(&self) -> usize {
+        ICONS.iter().map(|(_, _, bytes)| bytes.len()).sum()
     }
 }
 
-/// The desktop's text rendering: read once, on the first window, and kept
-/// current by [`follow_text_rendering`].
-static TEXT_RENDERING: std::sync::Mutex<Option<fastframe_text::TextRendering>> =
-    std::sync::Mutex::new(None);
-
-/// Set when the desktop's text rendering changed and no window has applied
-/// it yet.
-static TEXT_RENDERING_CHANGED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
-
-/// How the desktop draws text. The first call reads its settings, which can
-/// block for about a second on Linux when the desktop portal does not answer;
-/// tests use the platform's defaults, so the machine does not decide them.
-pub fn text_rendering() -> fastframe_text::TextRendering {
-    *TEXT_RENDERING
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .get_or_insert_with(|| {
-            if cfg!(test) {
-                fastframe_text::TextRendering::platform_default()
-            } else {
-                fastframe_text::detect()
-            }
-        })
-}
-
-/// Follows changes to the desktop's font settings (the desktop portal on
-/// Linux) and calls `wake` so a window picks them up through
-/// [`apply_text_rendering_change`]. Elsewhere, and without a portal, the
-/// settings read at start stay.
-pub fn follow_text_rendering(wake: impl Fn() + Send + 'static) {
-    let current = text_rendering();
-    let watched = fastframe_text::watch::watch(current, move |rendering| {
-        *TEXT_RENDERING
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(rendering);
-        TEXT_RENDERING_CHANGED.store(true, std::sync::atomic::Ordering::Release);
-        wake();
-    });
-    if let Err(error) = watched {
-        log::debug!("not following the desktop's font settings: {error}");
-    }
-}
-
-/// Reinstalls the fonts when the desktop's text rendering changed since the
-/// last call. Returns whether it did, so the caller reapplies its visuals.
-pub fn apply_text_rendering_change(ctx: &egui::Context) -> bool {
-    let changed = TEXT_RENDERING_CHANGED.swap(false, std::sync::atomic::Ordering::AcqRel);
-    if changed {
-        install_fonts(ctx);
-    }
-    changed
-}
-
-fastframe_icons::icons! {
-    /// Every icon the interface draws. Icons Spotifast ships too come from
-    /// fastframe-icons (`lucide`); the rest are ZapFast's own files.
-    pub enum Icon {
-        prefix: "zapfast-icon-",
-        directory: "../assets/icons/",
-        Archive => "archive",
-        ArrowDown => "arrow-down",
-        ArrowLeft => lucide "arrow-left",
-        Ban => "ban",
-        Bell => "bell",
-        BellOff => "bell-off",
-        Calendar => "calendar",
-        Check => lucide "check",
-        CheckCheck => "check-check",
-        ChevronDown => lucide "chevron-down",
-        ChevronLeft => lucide "chevron-left",
-        ChevronRight => lucide "chevron-right",
-        ChevronUp => lucide "chevron-up",
-        ListChecks => "list-checks",
-        CircleAlert => lucide "circle-alert",
-        CircleCheck => lucide "circle-check",
-        CircleX => lucide "circle-x",
-        Clock => lucide "clock",
-        Contact => "contact",
-        DeliveryTick => "delivery-tick",
-        DeliveryTicks => "delivery-ticks",
-        Copy => lucide "copy",
-        Download => "download",
-        Timer => "timer",
-        Ellipsis => lucide "ellipsis",
-        Eraser => "eraser",
-        ExternalLink => lucide "external-link",
-        Eye => lucide "eye",
-        EyeOff => lucide "eye-off",
-        FileText => "file-text",
-        Forward => "forward",
-        Gif => "gif",
-        Heart => "heart",
-        Image => "image",
-        Info => lucide "info",
-        Keyboard => "keyboard",
-        Lock => lucide "lock",
-        LockOpen => "lock-open",
-        LogOut => lucide "log-out",
-        MapPin => "map-pin",
-        Maximize => lucide "maximize-2",
-        MessageCircle => "message-circle",
-        Mic => lucide "mic",
-        Minimize => lucide "minimize-2",
-        Minus => lucide "minus",
-        Monitor => lucide "monitor",
-        Moon => lucide "moon",
-        PanelLeft => lucide "panel-left",
-        Paperclip => "paperclip",
-        Pause => lucide "pause",
-        Pencil => lucide "pencil",
-        Phone => "phone",
-        Pin => lucide "pin",
-        PinOff => lucide "pin-off",
-        Play => lucide "play",
-        Plus => lucide "plus",
-        QrCode => "qr-code",
-        Refresh => lucide "refresh-cw",
-        Reply => "reply",
-        Search => lucide "search",
-        Send => "send",
-        Settings => lucide "settings",
-        Smartphone => lucide "smartphone",
-        Smile => "smile",
-        SquarePen => lucide "square-pen",
-        Star => "star",
-        StarOff => "star-off",
-        Sticker => "sticker",
-        Sun => lucide "sun",
-        Tag => "tag",
-        Trash => lucide "trash-2",
-        User => lucide "user",
-        Users => lucide "users",
-        Video => "video",
-        Volume2 => lucide "volume-2",
-        VolumeX => lucide "volume-x",
-        WifiOff => "wifi-off",
-        X => lucide "x",
-    }
+fn register_icons(ctx: &egui::Context) {
+    ctx.add_bytes_loader(std::sync::Arc::new(IconBytes));
 }
 
 /// A static icon.
@@ -772,40 +659,13 @@ pub fn circle_button(
     }
 }
 
-/// Draws the app's mark as it ships: the lit disc and the ink bubble of
-/// `packaging/icons/zapfast.svg`, rendered once per pixel size.
-pub fn mark(ui: &egui::Ui, center: egui::Pos2, diameter: f32) {
-    let ctx = ui.ctx();
-    let pixels = (diameter * ctx.pixels_per_point()).round().max(1.0) as usize;
-    let id = egui::Id::new(("zapfast-mark", pixels));
-    let texture = match ctx.data_mut(|data| data.get_temp::<egui::TextureHandle>(id)) {
-        Some(texture) => texture,
-        None => {
-            let rgba = crate::util::app_icon_rgba(pixels);
-            let image = egui::ColorImage::from_rgba_unmultiplied([pixels, pixels], &rgba);
-            let texture = ctx.load_texture(
-                format!("zapfast-mark-{pixels}"),
-                image,
-                egui::TextureOptions::LINEAR,
-            );
-            ctx.data_mut(|data| data.insert_temp(id, texture.clone()));
-            texture
-        }
-    };
-    let rect = egui::Rect::from_center_size(center, Vec2::splat(diameter));
-    let uv = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
-    ui.painter().image(texture.id(), rect, uv, Color32::WHITE);
-}
-
-/// Draws the logo's shape in two flat colours, for the empty conversation's
-/// faint watermark.
+/// Draws the app logo.
 pub fn logo(ui: &egui::Ui, center: egui::Pos2, diameter: f32, disc: Color32, glyph: Color32) {
     ui.painter().circle_filled(center, diameter / 2.0, disc);
-    // Match `packaging/icons/zapfast-small.svg`: the bubble sits a little
-    // right of and above the centre, where its tail balances it.
-    let icon_size = diameter * 0.674;
+    // Match `packaging/icons/zapfast.svg`.
+    let icon_size = diameter * 0.56;
     let icon_rect = egui::Rect::from_center_size(
-        center + Vec2::new(diameter * 0.009, -diameter * 0.009),
+        center - Vec2::new(0.0, diameter * 0.02),
         Vec2::splat(icon_size),
     );
     Icon::MessageCircle
@@ -880,7 +740,7 @@ pub fn soft_button(
     active: bool,
 ) -> Response {
     let font = medium(13.0);
-    let color = if active { palette.accent } else { palette.text };
+    let color = if active { palette.window } else { palette.text };
     let galley = ui.painter().layout_no_wrap(label.to_string(), font, color);
     let icon_size = 15.0;
     let icon_width = if icon.is_some() { icon_size + 6.0 } else { 0.0 };
@@ -888,15 +748,11 @@ pub fn soft_button(
     let size = Vec2::new(galley.size().x + icon_width, galley.size().y) + padding * 2.0;
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     reveal_focus(&response);
-    response.widget_info(|| {
-        egui::WidgetInfo::selected(egui::WidgetType::Button, ui.is_enabled(), active, label)
-    });
     focus_outline(ui, response.id, rect, rect.height() / 2.0);
     if ui.is_rect_visible(rect) {
         let hovered = response.hovered();
-        // Active as a selected filter chip is: a tint of the accent.
         let fill = if active {
-            palette.accent.gamma_multiply(0.18)
+            palette.text
         } else if hovered {
             palette.surface_hover
         } else {
@@ -1142,12 +998,8 @@ pub fn preview_macos(ctx: &egui::Context) {
 
 /// Horizontal clearance for native buttons; they do not scale with UI zoom.
 pub fn traffic_light_inset(ctx: &egui::Context) -> f32 {
-    if cfg!(target_os = "macos") {
-        fastframe_macos::traffic_light_inset(ctx)
-    } else if macos_chrome(ctx) && !ctx.input(|input| input.viewport().fullscreen.unwrap_or(false))
-    {
-        // The demo's preview of the macOS layout on other platforms.
-        fastframe_macos::TRAFFIC_LIGHTS_WIDTH / ctx.zoom_factor()
+    if macos_chrome(ctx) && !ctx.input(|input| input.viewport().fullscreen.unwrap_or(false)) {
+        84.0 / ctx.zoom_factor()
     } else {
         0.0
     }
@@ -1166,117 +1018,44 @@ pub fn titlebar_inset(ctx: &egui::Context) -> f32 {
 mod tests {
     use super::*;
 
-    /// Timers count in Inter's tabular figures whatever face draws the
-    /// rest, and fall back like the interface text of their weight.
     #[test]
-    fn timers_count_in_figures_of_one_width() {
-        use fastframe_fonts::Weight;
-        let mut fonts = fastframe_fonts::FontSetup::default().definitions();
-        add_tabular(&mut fonts);
-        for weight in Weight::ALL {
-            let family = &fonts.families[&tabular_family(weight)];
-            assert_eq!(family[0], format!("zapfast-tabular-{}", weight.name()));
-            assert_eq!(family[1..], fonts.families[&weight.family()][..]);
+    fn every_icon_has_a_file() {
+        for (icon, uri, bytes) in ICONS {
+            assert!(!bytes.is_empty(), "{icon:?} is empty");
+            assert!(uri.ends_with(".svg"));
+            assert_eq!(icon.uri(), *uri);
         }
-        let ctx = egui::Context::default();
-        ctx.set_fonts(fonts);
-        let mut output = ctx.run_ui(egui::RawInput::default(), |_| {});
-        output.textures_delta.clear();
-        let widths: Vec<f32> = ["0:00", "1:11", "8:48"]
-            .into_iter()
-            .map(|time| {
-                ctx.fonts_mut(|fonts| {
-                    fonts
-                        .layout_no_wrap(
-                            time.into(),
-                            tabular(Weight::Medium, 14.0),
-                            egui::Color32::WHITE,
-                        )
-                        .size()
-                        .x
-                })
-            })
-            .collect();
-        ctx.tex_manager().write().take_delta().clear();
+    }
+
+    /// egui drops an image's bytes after the texture upload when
+    /// `reduce_texture_memory` is on, and then prunes the SVG's extra size
+    /// variants. A loader that survives both is what keeps an icon that is
+    /// drawn at two sizes from falling back to egui's red placeholder.
+    #[test]
+    fn icon_bytes_outlive_forgetting() {
+        use egui::load::{BytesLoader as _, BytesPoll};
+        let loader = IconBytes;
+        let (icon, uri, bytes) = ICONS[0];
+        let served =
+            |loader: &IconBytes, uri: &str| match loader.load(&egui::Context::default(), uri) {
+                Ok(BytesPoll::Ready { bytes, .. }) => Some(bytes),
+                _ => None,
+            };
+        let loaded = served(&loader, uri).expect("the icon loader serves every icon");
+        assert_eq!(&*loaded, bytes, "{icon:?} bytes differ");
+        loader.forget(uri);
+        loader.forget_all();
         assert!(
-            widths.iter().all(|width| (width - widths[0]).abs() < 0.01),
-            "{widths:?}"
+            served(&loader, uri).is_some(),
+            "{icon:?} must survive a forget"
         );
-    }
-
-    #[test]
-    fn raised_surfaces_get_a_lit_edge_and_a_denser_shadow() {
-        let preset = |name: &str| {
-            crate::theme::presets()
-                .find(|theme| theme.filename == name)
-                .unwrap()
-                .palette
-        };
-        // A mid-dark custom palette follows too.
-        let mut mid = Palette::dark();
-        mid.chat = Color32::from_rgb(0x3a, 0x3f, 0x4b);
-        mid.bubble_in = Color32::from_rgb(0x4c, 0x52, 0x60);
-        let palettes = [
-            Palette::dark(),
-            preset("Catppuccin.json"),
-            mid,
-            Palette::light(),
-            preset("Catppuccin Latte.json"),
-        ];
-        let luminance = |color: Color32| contrast(color, Color32::BLACK);
-        for palette in palettes {
-            for fill in [palette.bubble_in, palette.bubble_out, palette.panel] {
-                let edge = palette.raised_edge(fill);
-                // Lighter than the surface, or the same where it is white.
-                assert!(
-                    luminance(edge) > luminance(fill) || fill == Color32::WHITE,
-                    "{fill:?} -> {edge:?}"
-                );
-                if palette.dark {
-                    // Close to a bubble: a hint, not an outline.
-                    if fill != palette.panel {
-                        let lift = contrast(edge, palette.chat) / contrast(fill, palette.chat);
-                        assert!(lift > 1.05 && lift < 1.6, "{fill:?} -> {edge:?}: {lift}");
-                    }
-                } else {
-                    // Toward white, never toward the dark text.
-                    assert_eq!(edge, fill.lerp_to_gamma(Color32::WHITE, LIGHT_EDGE_TINT));
-                }
-            }
-            // The same lift in every theme, as heavy as the light theme's.
-            let shadow = palette.bubble_shadow();
-            assert_eq!((shadow.offset, shadow.blur), ([0, 2], 6));
-            assert_eq!(
-                shadow.color,
-                Palette::light().bubble_shadow().color,
-                "{:?}",
-                palette.shadow
-            );
-        }
-    }
-
-    /// The palette decides the theme, and the desktop's rendering its text
-    /// options: linear coverage in both themes on Linux, as GTK draws it.
-    #[test]
-    fn text_follows_the_desktop_rendering_in_both_themes() {
-        let rendering = text_rendering();
-        for palette in [Palette::dark(), Palette::light()] {
-            let ctx = egui::Context::default();
-            apply(&ctx, &palette);
-            let options = ctx.global_style().visuals.text_options;
-            assert_eq!(
-                options.color_transfer_function,
-                rendering.color_transfer_function(palette.dark),
-                "dark: {}",
-                palette.dark
-            );
-            assert_eq!(options.subpixel_binning, rendering.subpixel_positioning);
-            #[cfg(target_os = "linux")]
-            assert_eq!(
-                options.color_transfer_function,
-                egui::epaint::FontColorTransferFunction::Off
-            );
-        }
+        assert!(
+            matches!(
+                loader.load(&egui::Context::default(), "bytes://zapfast-icon-nope.svg"),
+                Err(egui::load::LoadError::NotSupported)
+            ),
+            "other URIs must fall through to the default loader"
+        );
     }
 
     fn assert_readable(name: &str, pairs: &[(&str, Color32, Color32)], target: f32) {
@@ -1333,7 +1112,7 @@ mod tests {
         let palettes = [("dark", Palette::dark()), ("light", Palette::light())]
             .into_iter()
             .map(|(name, palette)| (name.to_owned(), palette))
-            .chain(presets().map(|theme| (theme.filename.clone(), theme.palette)));
+            .chain(presets::themes().map(|theme| (theme.filename.clone(), theme.palette)));
         for (name, palette) in palettes {
             for own in [false, true] {
                 let fill = if own {
@@ -1354,159 +1133,6 @@ mod tests {
                 assert_readable(&name, &[("read ticks", bubble.read, fill)], 3.0);
             }
         }
-    }
-
-    /// WCAG contrast ratio between two opaque colours.
-    fn contrast(a: Color32, b: Color32) -> f32 {
-        let luminance = |color: Color32| {
-            let linear = egui::Rgba::from(color);
-            0.2126 * linear.r() + 0.7152 * linear.g() + 0.0722 * linear.b()
-        };
-        let (light, dark) = {
-            let (a, b) = (luminance(a), luminance(b));
-            (a.max(b), a.min(b))
-        };
-        (light + 0.05) / (dark + 0.05)
-    }
-
-    #[test]
-    fn spotifast_palettes_also_colour_the_conversation() {
-        let themes: Vec<_> = presets().collect();
-        assert_eq!(themes.len(), 8);
-        for theme in themes {
-            let palette = theme.palette;
-            assert_eq!(palette.chat, palette.window);
-            assert_eq!(
-                palette.bubble_in,
-                palette.surface.lerp_to_gamma(palette.text, 0.05)
-            );
-            assert_ne!(palette.bubble_out, palette.bubble_in);
-            assert_eq!(palette.link, palette.accent);
-            // Bubbles stand out from the chat more than surfaces do, and
-            // their text stays readable.
-            let name = &theme.filename;
-            assert!(
-                contrast(palette.bubble_in, palette.chat) > contrast(palette.surface, palette.chat),
-                "{name}: incoming bubbles stand out"
-            );
-            assert!(
-                contrast(palette.bubble_out, palette.chat) > 1.35,
-                "{name}: outgoing bubbles stand out"
-            );
-            for bubble in [palette.bubble_in, palette.bubble_out] {
-                assert!(
-                    contrast(palette.text, bubble) >= 4.5,
-                    "{name}: text on {bubble:?} is readable"
-                );
-            }
-            assert_eq!(
-                palette.dark,
-                !matches!(
-                    theme.filename.as_str(),
-                    "Catppuccin Latte.json" | "Rose Pine Dawn.json"
-                )
-            );
-        }
-    }
-
-    #[test]
-    fn rose_pine_dawn_hovered_primary_buttons_keep_readable_content() {
-        let palette = presets()
-            .find(|theme| theme.filename == "Rose Pine Dawn.json")
-            .unwrap()
-            .palette;
-        let ratio = contrast(palette.on_accent, palette.accent_hover);
-        assert!(ratio >= 4.5, "hover contrast is only {ratio:.2}:1");
-    }
-
-    /// Every colour ZapFast has can be set by name, including the chat
-    /// colours Spotifast's palettes lack; explicit ones win over derived ones.
-    #[test]
-    fn palette_files_set_every_colour_and_keep_explicit_chat_colours() {
-        let palette: Palette = fastframe_theme::parse_palette(
-            r##"{"base":"light","colors":{"window":"#101010","accent":"#203040","chat":"#010203","bubble_out":"#040506","shadow":"#00000080"}}"##,
-        )
-        .unwrap();
-        assert!(!palette.dark);
-        assert_eq!(palette.chat, Color32::from_rgb(1, 2, 3));
-        assert_eq!(palette.bubble_out, Color32::from_rgb(4, 5, 6));
-        assert_eq!(palette.link, Color32::from_rgb(0x20, 0x30, 0x40));
-        assert_eq!(palette.shadow, Color32::from_black_alpha(128));
-        assert_eq!(palette.panel, Palette::light().panel);
-        for name in [
-            "window",
-            "panel",
-            "surface",
-            "surface_hover",
-            "surface_active",
-            "outline",
-            "text",
-            "secondary",
-            "dim",
-            "accent",
-            "accent_hover",
-            "on_accent",
-            "danger",
-            "warning",
-            "overlay",
-            "shadow",
-            "chat",
-            "bubble_in",
-            "bubble_out",
-            "link",
-            "read",
-        ] {
-            let mut palette = Palette::dark();
-            assert!(
-                fastframe_theme::Palette::set(&mut palette, name, Color32::RED),
-                "{name}"
-            );
-        }
-        assert!(
-            fastframe_theme::parse_palette::<Palette>(r##"{"colors":{"typo":"#ffffff"}}"##)
-                .is_err()
-        );
-    }
-
-    /// ZapFast's Omarchy template adds the chat colours to the base ones and
-    /// renders as Omarchy's own renderer does.
-    #[test]
-    fn the_omarchy_template_renders_like_omarchy_in_light_and_dark_themes() {
-        const TEMPLATE: &str = include_str!("../contrib/omarchy/zapfast.json.tpl");
-        for (colors, expected) in [
-            (
-                include_str!("../tests/fixtures/omarchy/catppuccin.tsv"),
-                include_str!("../tests/fixtures/omarchy/catppuccin.json"),
-            ),
-            (
-                include_str!("../tests/fixtures/omarchy/catppuccin-latte.tsv"),
-                include_str!("../tests/fixtures/omarchy/catppuccin-latte.json"),
-            ),
-        ] {
-            let actual =
-                fastframe_theme::omarchy::render_seed::<Palette>(TEMPLATE, colors).unwrap();
-            assert_eq!(
-                serde_json::from_str::<serde_json::Value>(&actual).unwrap(),
-                serde_json::from_str::<serde_json::Value>(expected).unwrap()
-            );
-        }
-        assert_eq!(DESKTOP_THEMES.omarchy_template, TEMPLATE);
-        // A copy of the current template is never taken for an outdated one.
-        assert!(
-            !DESKTOP_THEMES
-                .omarchy_previous_templates
-                .contains(&TEMPLATE)
-        );
-    }
-
-    /// The hook packages install must be the one fastframe-theme describes.
-    /// A Windows checkout may turn its line endings into CRLF.
-    #[test]
-    fn the_shipped_omarchy_hook_has_not_drifted() {
-        assert_eq!(
-            include_str!("../contrib/omarchy/zapfast-theme").replace("\r\n", "\n"),
-            fastframe_theme::omarchy::hook_script("zapfast")
-        );
     }
 
     #[test]

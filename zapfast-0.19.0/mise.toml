@@ -1,0 +1,7 @@
+wrappers = { cargo = { command = "mbx", env = { MBX_CARGO_SHIM_MODE = "1" } } }
+# Optional: contributors who use mise get the pinned toolchain with builds
+# through mbx (https://mr-boxington.jdx.dev). Keep the version in step with
+# rust-toolchain.toml. Plain rustup and cargo work without it.
+[tools]
+rust = { version = "1.98.0", components = ["rustfmt", "clippy"], mr_boxington = true }
+mr-boxington = "latest"

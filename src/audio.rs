@@ -26,20 +26,6 @@ fn rate() -> NonZero<u32> {
     NonZero::new(voice::RATE).expect("48 kHz is not zero")
 }
 
-/// Opens the default output device for playback.
-///
-/// rodio reports the sink's drop through `stderr` by default. A desktop launch
-/// can have that closed: ZapFast inherits `stderr` from whatever started it,
-/// and that process can exit while ZapFast runs on. Rust ignores `SIGPIPE`, so
-/// the next write there fails with `Broken pipe` and the print macro panics,
-/// which aborts the whole app in a release build. Keep it off, and report
-/// failures of our own through the log instead.
-pub fn open_output() -> Result<rodio::MixerDeviceSink, rodio::DeviceSinkError> {
-    let mut output = rodio::DeviceSinkBuilder::open_default_sink()?;
-    output.log_on_drop(false);
-    Ok(output)
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum State {
     Idle,
@@ -120,8 +106,6 @@ pub struct Player {
     stretching: Option<Stretching>,
     /// Generated waveforms for clips that did not include one.
     bars: HashMap<String, Vec<u8>>,
-    /// Message whose clip just played to its end, waiting to be taken.
-    finished: Option<String>,
 }
 
 struct Loaded {
@@ -171,7 +155,6 @@ impl Player {
             stretches: Vec::new(),
             stretching: None,
             bars: HashMap::new(),
-            finished: None,
         }
     }
 
@@ -329,14 +312,6 @@ impl Player {
         self.decoding = None;
         self.stretches.clear();
         self.stretching = None;
-        // A clip the reader stopped is not one that played to its end.
-        self.finished = None;
-    }
-
-    /// Takes the message whose clip just played to its end, once. The app uses
-    /// it to carry on with the next unplayed voice message.
-    pub fn take_finished(&mut self) -> Option<String> {
-        self.finished.take()
     }
 
     /// Whether audio is currently playing.
@@ -444,7 +419,6 @@ impl Player {
         if ended {
             // Release the device after playback ends.
             self.output = None;
-            self.finished = self.loaded.as_ref().map(|loaded| loaded.message.clone());
         }
         Ok(())
     }
@@ -484,7 +458,8 @@ impl Player {
         let total = clip_length(loaded.samples.len());
         let offset = ((fraction.clamp(0.0, 1.0) * buffer.len() as f32) as usize).min(buffer.len());
         if self.output.is_none() {
-            let device = open_output().map_err(|error| format!("No sound output: {error}"))?;
+            let device = rodio::DeviceSinkBuilder::open_default_sink()
+                .map_err(|error| format!("No sound output: {error}"))?;
             let sink = rodio::Player::connect_new(device.mixer());
             self.output = Some((device, sink));
         }
@@ -532,10 +507,6 @@ fn decode_file(path: &Path) -> Result<Vec<f32>, String> {
 
 type Outcome = Arc<Mutex<Option<Result<Vec<f32>, String>>>>;
 
-/// Records until told to stop, pushing a level per 50 ms, and returns the
-/// mono 48 kHz samples.
-type Take = fn(&AtomicBool, &Mutex<Vec<f32>>, &Waker) -> Result<Vec<f32>, String>;
-
 /// Records from the default microphone until told to stop.
 pub struct Recorder {
     started: Instant,
@@ -548,18 +519,6 @@ pub struct Recorder {
 
 impl Recorder {
     pub fn start(waker: Waker) -> Self {
-        Self::spawn(waker, record)
-    }
-
-    /// Records a synthetic voice instead of the microphone, at the pace a
-    /// real take would, for offline demos: the waveform grows while it runs
-    /// and sending it yields that many seconds of a speech-like tone.
-    #[cfg(any(test, feature = "demo"))]
-    pub fn simulated(waker: Waker) -> Self {
-        Self::spawn(waker, rehearse)
-    }
-
-    fn spawn(waker: Waker, body: Take) -> Self {
         let stop = Arc::new(AtomicBool::new(false));
         let levels: Arc<Mutex<Vec<f32>>> = Default::default();
         let outcome: Outcome = Default::default();
@@ -570,7 +529,7 @@ impl Recorder {
             std::thread::Builder::new()
                 .name("voice-record".to_owned())
                 .spawn(move || {
-                    let result = body(&stop, &levels, &waker);
+                    let result = record(&stop, &levels, &waker);
                     *outcome.lock().unwrap_or_else(|p| p.into_inner()) = Some(result);
                     waker.wake();
                 })
@@ -650,36 +609,6 @@ impl Drop for Recorder {
     }
 }
 
-/// A speech-like tone for [`Recorder::simulated`], one level per 50 ms.
-#[cfg(any(test, feature = "demo"))]
-fn rehearse(
-    stop: &AtomicBool,
-    levels: &Mutex<Vec<f32>>,
-    waker: &Waker,
-) -> Result<Vec<f32>, String> {
-    let segment = voice::RATE as usize / 20;
-    let mut samples = Vec::new();
-    while !stop.load(Ordering::Relaxed) {
-        let start = samples.len();
-        samples.extend((start..start + segment).map(|index| {
-            let t = index as f32 / voice::RATE as f32;
-            (t * 180.0 * std::f32::consts::TAU).sin()
-                * 0.35
-                * ((t * 2.3).sin() * (t * 0.9).cos()).abs()
-        }));
-        let peak = samples[start..]
-            .iter()
-            .fold(0.0_f32, |peak, sample| peak.max(sample.abs()));
-        levels
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .push(peak * 0.7);
-        waker.wake();
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    Ok(samples)
-}
-
 fn record(stop: &AtomicBool, levels: &Mutex<Vec<f32>>, waker: &Waker) -> Result<Vec<f32>, String> {
     let mut microphone = rodio::microphone::MicrophoneBuilder::new()
         .default_device()
@@ -726,21 +655,6 @@ pub fn recording_path(dir: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_clip_that_finished_is_handed_back_once() {
-        let mut player = Player::new(crate::backend::Waker::default());
-        player.finished = Some("clip".into());
-        assert_eq!(player.take_finished().as_deref(), Some("clip"));
-        assert_eq!(player.take_finished(), None, "the app takes it once");
-        player.finished = Some("other".into());
-        player.stop();
-        assert_eq!(
-            player.take_finished(),
-            None,
-            "a clip the reader stopped is not one that played to its end"
-        );
-    }
 
     #[test]
     fn speed_labels_match_the_button() {

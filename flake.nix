@@ -133,7 +133,7 @@
             meta = {
               description = "Fast native WhatsApp client";
               homepage = "https://zapfast.rocks";
-              license = with pkgs.lib.licenses; [ mit gpl2Only ];
+              license = pkgs.lib.licenses.mit;
               mainProgram = "zapfast";
               platforms = pkgs.lib.platforms.linux;
             };

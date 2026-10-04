@@ -8,14 +8,8 @@ pub enum Stop {
     Composer,
     Send,
     Attach,
+    Poll,
     Emoji,
-    /// The chat header's Search, then the search pane's controls in reading
-    /// order. The arrows walk its results from the field.
-    ChatSearch,
-    ChatSearchClose,
-    ChatSearchDate,
-    ChatSearchField,
-    ChatSearchDay,
     Back,
     Profile,
     Sidebar,
@@ -25,14 +19,14 @@ pub enum Stop {
     All,
     Unread,
     Private,
-    Favorites,
     Groups,
     Channels,
     Archived,
     Locked,
-    /// One chip in the label row, by its position among the labels.
-    Label(u8),
-    ManageLabels,
+    RailChats,
+    RailStatus,
+    RailChannels,
+    RailCommunities,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -74,16 +68,6 @@ impl TabStop for Response {
         }
         self
     }
-}
-
-/// The widget last registered for `stop`, such as an icon button without
-/// painted text, so a scripted demo can find it where it was drawn.
-#[cfg(any(test, feature = "demo"))]
-pub(crate) fn control(ctx: &Context, stop: Stop) -> Option<Id> {
-    ctx.data(|data| data.get_temp::<Order>(order_id()))?
-        .controls
-        .into_iter()
-        .find_map(|(known, id)| (known == stop).then_some(id))
 }
 
 /// Intercept Tab before any widgets are registered. Merely consuming the key

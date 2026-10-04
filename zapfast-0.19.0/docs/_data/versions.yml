@@ -1,0 +1,8 @@
+current: v0.18.2
+items:
+  - id: v0.18.2
+    title: v0.18.2
+    url: /download/
+  - title: Changelog
+    url: https://github.com/crmne/zapfast/releases
+    external: true

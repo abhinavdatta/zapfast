@@ -2,20 +2,24 @@
 
 use egui::{Key, Modifiers};
 
+pub use super::focus::Stop;
 use crate::app::App;
-use crate::model::{Action, Chat, Dialog, Page, Scroll};
+use crate::model::{Action, Chat, Dialog, Page};
 
 pub fn handle(app: &mut App, ctx: &egui::Context) {
+    if app.pdf_preview.is_some() {
+        pdf_keys(app, ctx);
+        return;
+    }
     if app.image_preview.is_some() {
         preview_keys(app, ctx);
         return;
     }
-    if app.video_expanded {
-        video_keys(app, ctx);
+    if app.image_editor.is_some() {
+        editor_keys(app, ctx);
         return;
     }
     let editing_text = ctx.text_edit_focused();
-    let find = find_action(app);
     let mut actions = Vec::new();
     ctx.input_mut(|input| {
         let mut key = |modifiers: Modifiers, key: Key, action: Action| {
@@ -27,17 +31,9 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
         key(
             Modifiers::COMMAND | Modifiers::SHIFT,
             Key::F,
-            Action::FocusSearch,
+            Action::OpenChatSearch,
         );
-        key(Modifiers::COMMAND, Key::F, find);
-        // Before Ctrl+L, which would also match it with Shift held.
-        if app.settings.app_lock_hash.is_some() {
-            key(
-                Modifiers::COMMAND | Modifiers::SHIFT,
-                Key::L,
-                Action::LockApp,
-            );
-        }
+        key(Modifiers::COMMAND, Key::F, Action::FocusSearch);
         key(Modifiers::COMMAND, Key::K, Action::FocusSearch);
         if app.is_linked() {
             key(
@@ -64,7 +60,7 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
             key(Modifiers::COMMAND, Key::L, Action::FocusComposer);
         }
         key(Modifiers::COMMAND, Key::B, Action::ToggleSidebar);
-        key(Modifiers::COMMAND, Key::Comma, Action::ToggleSettings);
+        key(Modifiers::COMMAND, Key::Comma, Action::Open(Page::Settings));
         key(Modifiers::COMMAND, Key::Q, Action::Quit);
         key(Modifiers::COMMAND, Key::W, Action::CloseWindow);
         key(
@@ -81,60 +77,19 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
     // Escape cancels the topmost state. Menus handle Escape themselves.
     let menu_open = egui::Popup::is_any_open(ctx);
     let search_focused = ctx.memory(|memory| memory.has_focus(egui::Id::new("chat-search")));
-    let composer_focused = ctx.memory(|memory| memory.has_focus(egui::Id::new("composer-text")));
-    // PgUp/PgDn/Home/End scroll the open chat. PgUp/PgDn also work while the
-    // composer has focus, since egui's TextEdit does not handle them itself;
-    // Home/End keep moving the text cursor in a non-empty field, as ↑ keeps
-    // its normal meaning outside an empty composer.
-    if app.page == Page::Chats
-        && app.open_chat.is_some()
-        && app.dialog.is_none()
-        && !app.show_update
-        && app.picker.is_none()
-        && app.reaction_target.is_none()
-        && !menu_open
-    {
-        let home_end_allowed = !editing_text || (composer_focused && app.composer.is_empty());
-        ctx.input_mut(|input| {
-            if take_plain(input, Key::PageUp) {
-                actions.push(Action::ScrollPage(Scroll::PageUp));
-            }
-            if take_plain(input, Key::PageDown) {
-                actions.push(Action::ScrollPage(Scroll::PageDown));
-            }
-            if home_end_allowed {
-                if take_plain(input, Key::Home) {
-                    actions.push(Action::ScrollPage(Scroll::Top));
-                }
-                if take_plain(input, Key::End) {
-                    actions.push(Action::ScrollPage(Scroll::Bottom));
-                }
-            }
-        });
-    }
     let escape = (!menu_open || app.reaction_target.is_some())
         && ctx.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
     if escape {
-        if app.show_update {
+        if app.chat_search_open {
+            actions.push(Action::CloseChatSearch);
+        } else if app.show_update {
             actions.push(Action::CloseUpdate);
-        } else if app.dialog.is_some() && app.group_name_edit.is_some() {
-            // Cancels the group rename and keeps the dialog open.
-            actions.push(Action::CloseGroupName);
         } else if app.dialog.is_some() {
             actions.push(Action::CloseDialog);
         } else if app.recording.is_some() {
             actions.push(Action::CancelRecording);
         } else if app.picker.is_some() || app.reaction_target.is_some() {
             actions.push(Action::ClosePicker);
-        } else if app.selection.is_some() {
-            // Taken here, the key never reaches the selection bar, and
-            // would otherwise fall through to closing the chat.
-            actions.push(Action::CancelSelection);
-        } else if app.chat_search_visible() && app.chat_search_calendar {
-            // The day filter first, then the pane it hangs from.
-            app.chat_search_calendar = false;
-        } else if app.chat_search_visible() && !composer_focused {
-            actions.push(Action::CloseChatSearch);
         } else if app.emoji_start.is_some() {
             actions.push(Action::CloseEmojiSuggestions);
         } else if app.mention_start.is_some() {
@@ -147,8 +102,14 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
             actions.push(Action::CancelReply);
         } else if app.page == Page::Wallpaper {
             actions.push(Action::Open(Page::Settings));
-        } else if app.page == Page::Settings && !app.settings_search.is_empty() {
-            actions.push(Action::SearchSettings(String::new()));
+        } else if app.status_story.is_some() {
+            actions.push(Action::CloseStory);
+        } else if matches!(app.page, Page::Status | Page::Channels | Page::Communities)
+            && app.open_chat.is_none()
+        {
+            // Roster pages without an open conversation return to chats,
+            // like the pages' own back buttons.
+            actions.push(Action::Open(Page::Chats));
         } else if app.page == Page::Settings {
             actions.push(Action::Open(Page::Chats));
         } else if search_focused || !app.search.is_empty() {
@@ -158,12 +119,28 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
             if app.open_chat.is_some() {
                 actions.push(Action::FocusComposer);
             }
-        } else if app.chat_search_visible() {
-            actions.push(Action::CloseChatSearch);
         } else if app.open_chat.is_some() {
             actions.push(Action::CloseChat);
         } else if app.locked_folder {
             actions.push(Action::CloseLockedFolder);
+        }
+    }
+    // Enter walks the open chat's matches while its field has focus; with the
+    // composer focused, Enter keeps sending.
+    if app.chat_search_open
+        && ctx.memory(|memory| memory.has_focus(egui::Id::new("chat-search-in-chat")))
+    {
+        let step = ctx.input_mut(|input| {
+            if input.consume_key(Modifiers::SHIFT, Key::Enter) {
+                Some(-1)
+            } else if input.consume_key(Modifiers::NONE, Key::Enter) {
+                Some(1)
+            } else {
+                None
+            }
+        });
+        if let Some(step) = step {
+            actions.push(Action::StepChatSearch(step));
         }
     }
     // Enter sends a recording because the text field is hidden.
@@ -172,68 +149,41 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
     {
         actions.push(Action::SendRecording);
     }
-    // Alt+Up/Down switches chats without leaving the composer, and so do
-    // Ctrl+Shift+[ and Ctrl+Shift+], WhatsApp's own keys. With Shift held,
-    // US-style layouts report the brackets as braces, so both spellings
-    // count; a layout with another character on the shifted key has Alt.
+    // Alt+Up/Down switches chats without leaving the composer.
     let step = ctx.input_mut(|input| {
-        let brackets = Modifiers::COMMAND | Modifiers::SHIFT;
-        let mut pressed = |modifiers: Modifiers, keys: &[Key]| {
-            keys.iter().any(|key| input.consume_key(modifiers, *key))
-        };
-        if pressed(Modifiers::ALT, &[Key::ArrowDown])
-            || pressed(brackets, &[Key::CloseBracket, Key::CloseCurlyBracket])
-        {
+        if input.consume_key(Modifiers::ALT, Key::ArrowDown) {
             1
-        } else if pressed(Modifiers::ALT, &[Key::ArrowUp])
-            || pressed(brackets, &[Key::OpenBracket, Key::OpenCurlyBracket])
-        {
+        } else if input.consume_key(Modifiers::ALT, Key::ArrowUp) {
             -1
         } else {
             0
         }
     });
-    // Numbered shortcuts use the same ordering and filters as the sidebar.
-    let number = if app.page == Page::Chats
-        && app.dialog.is_none()
-        && !app.show_update
-        && app.picker.is_none()
-        && app.reaction_target.is_none()
-        && app.recording.is_none()
-        && !menu_open
-    {
-        ctx.input_mut(take_chat_number)
-    } else {
-        None
-    };
-    if step != 0 || number.is_some() {
+    if step != 0 {
         let visible = app.visible_chats();
         if !visible.is_empty() {
             let current = app
                 .open_chat
                 .as_ref()
                 .and_then(|open| visible.iter().position(|chat| chat.id == *open));
-            let next = number.unwrap_or_else(|| match current {
+            let next = match current {
                 Some(index) => (index as i64 + step).rem_euclid(visible.len() as i64) as usize,
                 None => 0,
-            });
-            if let Some(next) = visible.get(next).map(|chat| chat.id.clone()) {
-                if number.is_some() {
-                    app.search_selected = None;
-                }
-                // Stepping through the Unread list must not shift it underfoot.
-                if app.search.trim().is_empty() && !app.show_archived {
-                    actions.push(Action::KeepUnread(next.clone()));
-                }
-                app.scroll_chat_into_view = Some(next.clone());
-                actions.push(Action::OpenChat(next));
+            };
+            let next = visible[next].id.clone();
+            // Stepping through the Unread list must not shift it underfoot.
+            if app.search.trim().is_empty() && !app.show_archived {
+                actions.push(Action::KeepUnread(next.clone()));
             }
+            app.scroll_chat_into_view = Some(next.clone());
+            actions.push(Action::OpenChat(next));
         }
     }
     // Arrow Up in an empty, focused composer edits the user's most recent
     // message, as WhatsApp does. The key keeps its normal meaning everywhere
     // else: it navigates open overlays and moves the cursor in a non-empty
     // field.
+    let composer_focused = ctx.memory(|memory| memory.has_focus(egui::Id::new("composer-text")));
     let edit_previous = composer_focused
         && app.page == Page::Chats
         && app.open_chat.is_some()
@@ -251,69 +201,30 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
         && !app.show_update
         && app.recording.is_none()
         && !menu_open
-        && ctx.input_mut(|input| take_plain(input, Key::ArrowUp));
+        && ctx.input_mut(|input| {
+            let mut taken = false;
+            input.events.retain(|event| {
+                if taken {
+                    return true;
+                }
+                let matches = matches!(
+                    event,
+                    egui::Event::Key {
+                        key: found,
+                        pressed: true,
+                        modifiers,
+                        ..
+                    } if *found == Key::ArrowUp && *modifiers == Modifiers::NONE
+                );
+                taken |= matches;
+                !matches
+            });
+            taken
+        });
     if let Some(id) = edit_previous.then(|| app.previous_own_editable()).flatten() {
         actions.push(Action::Edit(id));
     }
     app.actions.extend(actions);
-}
-
-/// Takes an exact Command/Ctrl+1..9 press, leaving modified number keys alone.
-fn take_chat_number(input: &mut egui::InputState) -> Option<usize> {
-    let keys = [
-        Key::Num1,
-        Key::Num2,
-        Key::Num3,
-        Key::Num4,
-        Key::Num5,
-        Key::Num6,
-        Key::Num7,
-        Key::Num8,
-        Key::Num9,
-    ];
-    let mut number = None;
-    input.events.retain(|event| {
-        if number.is_none()
-            && let egui::Event::Key {
-                key,
-                pressed: true,
-                modifiers,
-                ..
-            } = event
-            && modifiers.matches_exact(Modifiers::COMMAND)
-            && let Some(index) = keys.iter().position(|candidate| candidate == key)
-        {
-            number = Some(index);
-            return false;
-        }
-        true
-    });
-    number
-}
-
-/// Removes this frame's first plain (unmodified) press of `key`, if any, and
-/// reports whether one was found. `consume_key` is unsuitable here: it also
-/// matches the key with Shift or Alt held, and a plain binding must leave
-/// those combinations, such as Shift+Home for text selection, alone.
-pub(super) fn take_plain(input: &mut egui::InputState, key: Key) -> bool {
-    let mut taken = false;
-    input.events.retain(|event| {
-        if taken {
-            return true;
-        }
-        let matches = matches!(
-            event,
-            egui::Event::Key {
-                key: found,
-                pressed: true,
-                modifiers,
-                ..
-            } if *found == key && *modifiers == Modifiers::NONE
-        );
-        taken |= matches;
-        !matches
-    });
-    taken
 }
 
 /// Handles keys while the image preview is open. No chat shortcut runs, and
@@ -324,11 +235,6 @@ fn preview_keys(app: &mut App, ctx: &egui::Context) {
     ctx.input_mut(|input| {
         if input.consume_key(Modifiers::NONE, Key::Escape) {
             actions.push(Action::CloseImagePreview);
-        }
-        let copy_shortcut = input.consume_key(Modifiers::COMMAND, Key::C)
-            || input.consume_key(Modifiers::CTRL, Key::C);
-        if copy_shortcut && let Some(preview) = &app.image_preview {
-            actions.push(Action::CopyImage(preview.path().to_owned()));
         }
         let mut event_actions = Vec::new();
         for event in &input.events {
@@ -350,79 +256,72 @@ fn preview_keys(app: &mut App, ctx: &egui::Context) {
     app.actions.extend(actions);
 }
 
-/// Handles keys while a video covers the window: Escape puts it back, Space
-/// plays or pauses, M mutes, and the arrows jump five seconds. No chat
-/// shortcut runs and nothing is typed into the composer under it.
-fn video_keys(app: &mut App, ctx: &egui::Context) {
-    let Some((message, path)) = app
-        .video
-        .message()
-        .map(str::to_owned)
-        .zip(app.video.path().map(std::path::Path::to_owned))
-    else {
-        return;
-    };
-    let status = app.video.status(&message);
-    let jump = |seconds: f32| {
-        let status = status.as_ref()?;
-        let total = status.total.as_secs_f32();
-        (total > 0.0).then(|| Action::SeekVideo {
-            message: message.clone(),
-            fraction: ((status.position.as_secs_f32() + seconds) / total).clamp(0.0, 1.0),
-        })
-    };
+/// Undo, redo, apply, and dismiss keys for the photo editor, mirroring the
+/// preview modal's handling.
+fn editor_keys(app: &mut App, ctx: &egui::Context) {
     let mut actions = Vec::new();
     ctx.input_mut(|input| {
         if input.consume_key(Modifiers::NONE, Key::Escape) {
-            actions.push(Action::CollapseVideo);
+            actions.push(Action::CloseImageEditor);
         }
-        if input.consume_key(Modifiers::NONE, Key::Space) {
-            actions.push(Action::PlayVideo {
-                message: message.clone(),
-                path: path.clone(),
-            });
+        if input.consume_key(Modifiers::COMMAND, Key::Z) {
+            actions.push(Action::EditorUndo);
         }
-        if input.consume_key(Modifiers::NONE, Key::M) {
-            actions.push(Action::ToggleVideoSound);
+        let redo = input.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z)
+            || input.consume_key(Modifiers::COMMAND, Key::Y);
+        if redo {
+            actions.push(Action::EditorRedo);
         }
-        if input.consume_key(Modifiers::NONE, Key::ArrowLeft) {
-            actions.extend(jump(-5.0));
+        if input.consume_key(Modifiers::COMMAND, Key::R) {
+            actions.push(Action::EditorOp(crate::image_edit::EditOp::RotateRight));
         }
-        if input.consume_key(Modifiers::NONE, Key::ArrowRight) {
-            actions.extend(jump(5.0));
+        if input.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::R) {
+            actions.push(Action::EditorOp(crate::image_edit::EditOp::RotateLeft));
         }
-        input.events.retain(|event| {
-            !matches!(
-                event,
-                egui::Event::Key { .. } | egui::Event::Text(_) | egui::Event::Paste(_)
-            )
-        });
+        if input.consume_key(Modifiers::COMMAND, Key::Enter) {
+            actions.push(Action::EditorSend);
+        }
     });
     app.actions.extend(actions);
 }
 
-/// Ctrl+F searches the open chat, as in WhatsApp, the chat list when no
-/// chat is open, and the settings on the Settings page.
-fn find_action(app: &App) -> Action {
-    match app.page {
-        Page::Settings => Action::FocusSettingsSearch,
-        Page::Chats if app.open_chat.is_some() => Action::OpenChatSearch,
-        _ => Action::FocusSearch,
-    }
+/// Zoom, fit, page, and dismiss keys for the PDF viewer, mirroring the image
+/// preview's modal handling.
+fn pdf_keys(app: &mut App, ctx: &egui::Context) {
+    let mut actions = Vec::new();
+    ctx.input_mut(|input| {
+        if input.consume_key(Modifiers::NONE, Key::Escape) {
+            actions.push(Action::ClosePdfPreview);
+        }
+        let mut event_actions = Vec::new();
+        for event in &input.events {
+            if let egui::Event::Key {
+                key,
+                modifiers,
+                pressed: true,
+                ..
+            } = event
+            {
+                event_actions.extend(crate::pdf_preview::preview_action(*key, *modifiers));
+            }
+        }
+        actions.extend(event_actions);
+        input
+            .events
+            .retain(|event| !crate::pdf_preview::consumes_key(event));
+    });
+    app.actions.extend(actions);
 }
 
 /// Shortcuts shown in the help dialog.
 pub const SHORTCUTS: &[(&str, &str)] = &[
-    ("Ctrl+K / Ctrl+Shift+F", "Search chats"),
-    ("Ctrl+F", "Search the open chat or the settings"),
+    ("Ctrl+F / Ctrl+K", "Search chats"),
     (
-        "↑ / ↓, Enter",
-        "Walk the open chat's search results and jump to one",
+        "Ctrl+Shift+F",
+        "Search the open chat (Enter for the next match)",
     ),
     ("Ctrl+L", "Focus the message input"),
     ("Alt+↑ / Alt+↓", "Previous / next chat"),
-    ("Ctrl+Shift+[ / ]", "Previous / next chat, as in WhatsApp"),
-    ("Ctrl+1..9", "Open a chat by its position in the chat list"),
     ("↑", "Edit the previous message (when the input is empty)"),
     ("Enter", "Send (Shift+Enter for a new line)"),
     (
@@ -434,18 +333,12 @@ pub const SHORTCUTS: &[(&str, &str)] = &[
         "Ctrl+V",
         "Paste text, or stage a picture from the clipboard",
     ),
-    ("Ctrl+B", "Collapse or expand the chat list"),
+    ("Ctrl+B", "Show or hide the chat list"),
     ("Ctrl+End", "Jump to the newest message"),
-    ("PgUp / PgDn", "Scroll the open chat by a page"),
-    (
-        "Home / End",
-        "Top / bottom of the open chat (when the input is empty)",
-    ),
     ("Ctrl+,", "Settings"),
     ("Ctrl++ / Ctrl+-", "Zoom in / out"),
     ("Ctrl+0", "Reset zoom"),
     ("? / Ctrl+/", "Keyboard shortcuts (? when not typing)"),
-    ("Ctrl+Shift+L", "Lock ZapFast (with an app lock password)"),
     ("Ctrl+W", "Close the window (ZapFast remains in the tray)"),
     ("Ctrl+Q", "Quit"),
 ];
@@ -453,9 +346,7 @@ pub const SHORTCUTS: &[(&str, &str)] = &[
 /// Uses Command and Option labels on macOS.
 pub fn label(keys: &str) -> String {
     if cfg!(target_os = "macos") {
-        keys.replace("Ctrl", "⌘")
-            .replace("Strg", "⌘")
-            .replace("Alt", "⌥")
+        keys.replace("Ctrl", "⌘").replace("Alt", "⌥")
     } else {
         keys.to_owned()
     }
@@ -464,48 +355,6 @@ pub fn label(keys: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn ctrl_f_searches_the_open_chat_the_list_or_the_settings() {
-        let root = tempfile::tempdir().unwrap();
-        let mut app = App::headless(
-            crate::paths::AppDirs::under(root.path()),
-            crate::settings::Settings::default(),
-        )
-        .0;
-        assert!(matches!(find_action(&app), Action::FocusSearch));
-        app.open_chat = Some("1@s.whatsapp.net".into());
-        app.page = Page::Chats;
-        assert!(matches!(find_action(&app), Action::OpenChatSearch));
-        app.page = Page::Settings;
-        assert!(matches!(find_action(&app), Action::FocusSettingsSearch));
-        app.page = Page::Wallpaper;
-        assert!(matches!(find_action(&app), Action::FocusSearch));
-    }
-
-    #[test]
-    fn escape_clears_the_settings_search_before_leaving_settings() {
-        let root = tempfile::tempdir().unwrap();
-        let mut app = App::headless(
-            crate::paths::AppDirs::under(root.path()),
-            crate::settings::Settings::default(),
-        )
-        .0;
-        app.page = Page::Settings;
-        app.settings_search = "sound".into();
-        let ctx = egui::Context::default();
-        escape(&mut app, &ctx);
-        assert!(
-            matches!(app.actions.as_slice(), [Action::SearchSettings(text)] if text.is_empty())
-        );
-        app.actions.clear();
-        app.settings_search.clear();
-        escape(&mut app, &ctx);
-        assert!(matches!(
-            app.actions.as_slice(),
-            [Action::Open(Page::Chats)]
-        ));
-    }
 
     fn escape(app: &mut App, ctx: &egui::Context) {
         let mut output = ctx.run_ui(
@@ -522,34 +371,6 @@ mod tests {
             |ui| handle(app, ui.ctx()),
         );
         output.textures_delta.clear();
-    }
-
-    #[test]
-    fn escape_folds_the_day_filter_then_the_search_pane_then_the_chat() {
-        let root = tempfile::tempdir().unwrap();
-        let mut app = App::headless(
-            crate::paths::AppDirs::under(root.path()),
-            crate::settings::Settings::default(),
-        )
-        .0;
-        app.page = Page::Chats;
-        app.open_chat = Some("fixture".into());
-        app.chat_search_open = true;
-        app.chat_search_calendar = true;
-        let ctx = egui::Context::default();
-        escape(&mut app, &ctx);
-        assert!(!app.chat_search_calendar);
-        assert!(app.actions.is_empty(), "the pane stays for now");
-        escape(&mut app, &ctx);
-        assert!(matches!(app.actions.as_slice(), [Action::CloseChatSearch]));
-        app.actions.clear();
-        // Settings hide the pane, so Escape leaves them instead.
-        app.page = Page::Settings;
-        escape(&mut app, &ctx);
-        assert!(matches!(
-            app.actions.as_slice(),
-            [Action::Open(Page::Chats)]
-        ));
     }
 
     #[test]
@@ -648,343 +469,5 @@ mod tests {
         );
         output.textures_delta.clear();
         assert!(matches!(app.actions.as_slice(), [Action::CloseUpdate]));
-    }
-
-    fn app_with_chats(count: usize) -> (tempfile::TempDir, App, Vec<String>) {
-        let root = tempfile::tempdir().unwrap();
-        let mut app = App::headless(
-            crate::paths::AppDirs::under(root.path()),
-            crate::settings::Settings::default(),
-        )
-        .0;
-        let ids: Vec<String> = (0..count)
-            .map(|index| format!("49170000{index:04}@s.whatsapp.net"))
-            .collect();
-        for (index, id) in ids.iter().enumerate() {
-            let mut chat = Chat::new(id.clone(), format!("Chat {index:02}"));
-            chat.last_activity = 100 - index as i64;
-            app.chats.push(chat);
-        }
-        app.page = Page::Chats;
-        (root, app, ids)
-    }
-
-    /// Runs `handle` on one key press and reports whether the press was left
-    /// for the views, as every press that is not a shortcut must be.
-    fn press(app: &mut App, ctx: &egui::Context, key: Key, modifiers: Modifiers) -> bool {
-        let mut survived = false;
-        let mut output = ctx.run_ui(
-            egui::RawInput {
-                events: vec![egui::Event::Key {
-                    key,
-                    physical_key: None,
-                    pressed: true,
-                    repeat: false,
-                    modifiers,
-                }],
-                ..Default::default()
-            },
-            |ui| {
-                handle(app, ui.ctx());
-                survived = ui.ctx().input(|input| {
-                    input.events.iter().any(|event| {
-                        matches!(
-                            event,
-                            egui::Event::Key {
-                                key: found,
-                                pressed: true,
-                                ..
-                            } if *found == key
-                        )
-                    })
-                });
-            },
-        );
-        output.textures_delta.clear();
-        survived
-    }
-
-    /// The modifiers a real Ctrl+Shift press carries on Linux and Windows,
-    /// and a real Cmd+Shift press on macOS.
-    fn ctrl_shift() -> [Modifiers; 3] {
-        [
-            Modifiers::COMMAND | Modifiers::SHIFT,
-            Modifiers {
-                ctrl: true,
-                command: true,
-                shift: true,
-                ..Modifiers::NONE
-            },
-            Modifiers {
-                mac_cmd: true,
-                command: true,
-                shift: true,
-                ..Modifiers::NONE
-            },
-        ]
-    }
-
-    #[test]
-    fn bracket_shortcuts_step_to_the_previous_and_next_chat() {
-        let (_root, mut app, ids) = app_with_chats(3);
-        app.open_chat = Some(ids[1].clone());
-        let ctx = egui::Context::default();
-        // With Shift held, US-style layouts report the brackets as braces.
-        for modifiers in ctrl_shift() {
-            for (key, expected) in [
-                (Key::CloseBracket, &ids[2]),
-                (Key::CloseCurlyBracket, &ids[2]),
-                (Key::OpenBracket, &ids[0]),
-                (Key::OpenCurlyBracket, &ids[0]),
-            ] {
-                app.actions.clear();
-                app.scroll_chat_into_view = None;
-                let survived = press(&mut app, &ctx, key, modifiers);
-                assert!(!survived, "{key:?} with {modifiers:?} reached the views");
-                assert!(
-                    app.actions.contains(&Action::OpenChat(expected.clone())),
-                    "{key:?} with {modifiers:?} opens {expected}: {:?}",
-                    app.actions
-                );
-                assert_eq!(app.scroll_chat_into_view.as_ref(), Some(expected));
-            }
-        }
-    }
-
-    #[test]
-    fn numbered_shortcuts_open_each_position_with_platform_command_modifiers() {
-        let (_root, mut app, ids) = app_with_chats(9);
-        let ctx = egui::Context::default();
-        for modifiers in ctrl_shift().map(|modifiers| Modifiers {
-            shift: false,
-            ..modifiers
-        }) {
-            for (key, expected) in [
-                Key::Num1,
-                Key::Num2,
-                Key::Num3,
-                Key::Num4,
-                Key::Num5,
-                Key::Num6,
-                Key::Num7,
-                Key::Num8,
-                Key::Num9,
-            ]
-            .into_iter()
-            .zip(&ids)
-            {
-                app.actions.clear();
-                app.scroll_chat_into_view = None;
-                assert!(!press(&mut app, &ctx, key, modifiers));
-                assert!(app.actions.contains(&Action::OpenChat(expected.clone())));
-                assert_eq!(app.scroll_chat_into_view.as_ref(), Some(expected));
-            }
-        }
-    }
-
-    #[test]
-    fn numbered_shortcuts_follow_pins_filters_search_and_archived_order() {
-        let (_root, mut app, ids) = app_with_chats(4);
-        let ctx = egui::Context::default();
-        app.chats[3].pinned = true;
-        app.chats[2].archived = true;
-        app.chats[1].locked = true;
-        assert!(!press(&mut app, &ctx, Key::Num1, Modifiers::COMMAND));
-        assert!(app.actions.contains(&Action::OpenChat(ids[3].clone())));
-        app.actions.clear();
-        assert!(!press(&mut app, &ctx, Key::Num2, Modifiers::COMMAND));
-        assert!(app.actions.contains(&Action::OpenChat(ids[0].clone())));
-
-        app.chat_filter = crate::model::ChatFilter::Unread;
-        app.chats[0].unread = 1;
-        app.actions.clear();
-        press(&mut app, &ctx, Key::Num1, Modifiers::COMMAND);
-        assert!(app.actions.contains(&Action::OpenChat(ids[0].clone())));
-        assert!(app.actions.contains(&Action::KeepUnread(ids[0].clone())));
-
-        app.search = "Chat 02".into();
-        app.search_selected = Some(ids[0].clone());
-        app.actions.clear();
-        press(&mut app, &ctx, Key::Num9, Modifiers::COMMAND);
-        assert!(app.actions.is_empty());
-        assert_eq!(app.search_selected.as_ref(), Some(&ids[0]));
-        press(&mut app, &ctx, Key::Num1, Modifiers::COMMAND);
-        assert_eq!(app.actions, [Action::OpenChat(ids[2].clone())]);
-        assert!(app.search_selected.is_none());
-
-        app.search.clear();
-        app.show_archived = true;
-        app.actions.clear();
-        press(&mut app, &ctx, Key::Num1, Modifiers::COMMAND);
-        assert_eq!(app.actions, [Action::OpenChat(ids[2].clone())]);
-    }
-
-    #[test]
-    fn numbered_shortcuts_do_not_wrap_missing_positions_or_change_zero_zoom() {
-        let (_root, mut app, ids) = app_with_chats(2);
-        let ctx = egui::Context::default();
-        app.open_chat = Some(ids[0].clone());
-        for key in [Key::Num3, Key::Num9] {
-            assert!(!press(&mut app, &ctx, key, Modifiers::COMMAND));
-            assert!(app.actions.is_empty());
-            assert!(app.scroll_chat_into_view.is_none());
-        }
-        app.chats.clear();
-        press(&mut app, &ctx, Key::Num1, Modifiers::COMMAND);
-        assert!(app.actions.is_empty());
-        press(&mut app, &ctx, Key::Num0, Modifiers::COMMAND);
-        assert_eq!(app.actions, [Action::ResetZoom]);
-    }
-
-    #[test]
-    fn numbered_shortcuts_leave_plain_and_modified_numbers_alone() {
-        let (_root, mut app, _ids) = app_with_chats(2);
-        let ctx = egui::Context::default();
-        for modifiers in [
-            Modifiers::NONE,
-            Modifiers::SHIFT,
-            Modifiers::ALT,
-            Modifiers::COMMAND | Modifiers::SHIFT,
-            Modifiers::COMMAND | Modifiers::ALT,
-        ] {
-            assert!(press(&mut app, &ctx, Key::Num1, modifiers));
-            assert!(app.actions.is_empty());
-        }
-    }
-
-    #[test]
-    fn numbered_shortcuts_leave_settings_and_overlays_alone() {
-        let (_root, mut app, _ids) = app_with_chats(2);
-        let ctx = egui::Context::default();
-        app.page = Page::Settings;
-        assert!(press(&mut app, &ctx, Key::Num1, Modifiers::COMMAND));
-        app.page = Page::Chats;
-        app.dialog = Some(Dialog::Shortcuts);
-        assert!(press(&mut app, &ctx, Key::Num1, Modifiers::COMMAND));
-        app.dialog = None;
-        app.show_update = true;
-        assert!(press(&mut app, &ctx, Key::Num1, Modifiers::COMMAND));
-        app.show_update = false;
-        app.reaction_target = Some(("chat-fixture".into(), "message-fixture".into()));
-        assert!(press(&mut app, &ctx, Key::Num1, Modifiers::COMMAND));
-        assert!(app.actions.is_empty());
-    }
-
-    #[test]
-    fn a_bracket_without_ctrl_and_shift_together_stays_typed() {
-        let (_root, mut app, ids) = app_with_chats(3);
-        app.open_chat = Some(ids[1].clone());
-        let ctx = egui::Context::default();
-        let typed = [
-            Modifiers::NONE,
-            Modifiers::SHIFT,
-            Modifiers::COMMAND,
-            Modifiers {
-                ctrl: true,
-                command: true,
-                ..Modifiers::NONE
-            },
-            Modifiers {
-                mac_cmd: true,
-                command: true,
-                ..Modifiers::NONE
-            },
-            Modifiers::ALT,
-            Modifiers::ALT | Modifiers::SHIFT,
-        ];
-        for modifiers in typed {
-            for key in [
-                Key::OpenBracket,
-                Key::OpenCurlyBracket,
-                Key::CloseBracket,
-                Key::CloseCurlyBracket,
-            ] {
-                app.actions.clear();
-                let survived = press(&mut app, &ctx, key, modifiers);
-                assert!(survived, "{key:?} with {modifiers:?} was consumed");
-                assert!(
-                    !app.actions
-                        .iter()
-                        .any(|action| matches!(action, Action::OpenChat(_))),
-                    "{key:?} with {modifiers:?} switched chats"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn page_keys_scroll_the_open_chat_and_are_consumed() {
-        let (_root, mut app, ids) = app_with_chats(1);
-        app.open_chat = Some(ids[0].clone());
-        let ctx = egui::Context::default();
-        for (key, expected) in [
-            (Key::PageUp, Action::ScrollPage(Scroll::PageUp)),
-            (Key::PageDown, Action::ScrollPage(Scroll::PageDown)),
-            (Key::Home, Action::ScrollPage(Scroll::Top)),
-            (Key::End, Action::ScrollPage(Scroll::Bottom)),
-        ] {
-            app.actions.clear();
-            let survived = press(&mut app, &ctx, key, Modifiers::NONE);
-            assert!(!survived, "{key:?} reached the views");
-            assert_eq!(
-                app.actions,
-                [expected],
-                "{key:?} did not push the expected action"
-            );
-        }
-    }
-
-    #[test]
-    fn page_keys_leave_shift_and_ctrl_combinations_alone() {
-        let (_root, mut app, ids) = app_with_chats(1);
-        app.open_chat = Some(ids[0].clone());
-        let ctx = egui::Context::default();
-        for (key, modifiers) in [
-            (Key::Home, Modifiers::SHIFT),
-            (Key::PageUp, Modifiers::SHIFT),
-            (Key::Home, Modifiers::COMMAND),
-        ] {
-            app.actions.clear();
-            let survived = press(&mut app, &ctx, key, modifiers);
-            assert!(survived, "{key:?} with {modifiers:?} was consumed");
-            assert!(app.actions.is_empty(), "{key:?} with {modifiers:?} acted");
-        }
-        // Ctrl+End (Cmd+End on macOS) still jumps to the newest message.
-        app.actions.clear();
-        let survived = press(&mut app, &ctx, Key::End, Modifiers::COMMAND);
-        assert!(!survived);
-        assert_eq!(app.actions, [Action::ScrollToBottom]);
-    }
-
-    #[test]
-    fn page_keys_do_nothing_without_an_open_chat_a_dialog_or_off_the_chats_page() {
-        let (_root, mut app, ids) = app_with_chats(1);
-        let ctx = egui::Context::default();
-        let keys = [Key::PageUp, Key::PageDown, Key::Home, Key::End];
-        // No chat open.
-        for key in keys {
-            app.actions.clear();
-            assert!(
-                press(&mut app, &ctx, key, Modifiers::NONE),
-                "{key:?} survived with no chat open"
-            );
-            assert!(app.actions.is_empty());
-        }
-        app.open_chat = Some(ids[0].clone());
-        // A dialog is open.
-        app.dialog = Some(Dialog::Shortcuts);
-        for key in keys {
-            app.actions.clear();
-            assert!(press(&mut app, &ctx, key, Modifiers::NONE));
-            assert!(app.actions.is_empty());
-        }
-        app.dialog = None;
-        // Off the Chats page.
-        app.page = Page::Settings;
-        for key in keys {
-            app.actions.clear();
-            assert!(press(&mut app, &ctx, key, Modifiers::NONE));
-            assert!(app.actions.is_empty());
-        }
     }
 }

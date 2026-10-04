@@ -1,9 +1,6 @@
-//! Windows toast identity, click handling, and compact sender avatars,
-//! including portable builds.
+//! Windows toast identity and compact sender avatars, including portable builds.
 
-use super::NotificationTarget;
-use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::{path::Path, sync::OnceLock};
 use windows_sys::Win32::System::Registry::{
     HKEY_CURRENT_USER, REG_SZ, RegCloseKey, RegCreateKeyW, RegSetValueExW,
 };
@@ -66,26 +63,12 @@ pub(super) fn show(
     body: &str,
     picture: Option<&Path>,
     system_sound: bool,
-    target: NotificationTarget,
-    opened: Arc<Mutex<Vec<NotificationTarget>>>,
-    wake: impl Fn() + Send + 'static,
 ) -> anyhow::Result<()> {
     static REGISTERED: OnceLock<Result<(), String>> = OnceLock::new();
     if let Err(error) = REGISTERED.get_or_init(|| register_identity().map_err(|e| e.to_string())) {
         anyhow::bail!("notification identity unavailable: {error}");
     }
-    // Clicking the toast runs this on the notification system's own thread, so
-    // the wake and the queue write never touch the interface thread.
-    notification(title, body, picture, system_sound)
-        .on_activated(move |_| {
-            opened
-                .lock()
-                .unwrap_or_else(|p| p.into_inner())
-                .push(target.clone());
-            wake();
-            Ok(())
-        })
-        .show()?;
+    notification(title, body, picture, system_sound).show()?;
     Ok(())
 }
 

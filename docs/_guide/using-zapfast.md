@@ -8,8 +8,7 @@ nav_order: 3
 
 ## Writing
 
-Enter sends and Shift+Enter adds a line. Turn off **Enter sends** in Settings
-to make Enter add a line and send with Ctrl+Enter (Command+Enter on macOS).
+Enter sends and Shift+Enter adds a line. You can swap them in Settings.
 `*bold*`, `_italic_`, `~strike~`, and ```` ```monospace ```` ```` format
 like WhatsApp, and a message of nothing but emoji shows large.
 Mentions in a group are written with `@`; the smiley opens emoji
@@ -26,58 +25,16 @@ on its text still selects the word.
 
 ## Stickers
 
-The sticker tab works like WhatsApp's: a row of tabs holds **Recent**
-(the clock), **Favorites** (the star), each of your packs, and **+** for
-adding more. ZapFast adds **Received** (the speech bubble) after Favorites.
-Click a sticker to send it. Animated stickers play on hover.
-
-**Recent** holds the stickers you sent, not the ones you received.
-Right-click one to take it out of Recent here and on your phone.
-
-**Received** holds the stickers people sent you that are already
-downloaded, newest first, each once. Stickers already in Recent or
-Favorites, and stickers from locked chats, stay out of it.
-
-Right-click a sticker in a chat or the picker to add it to your
-**Favorites**. Favorites stay in sync with your phone: a sticker you favorite
-or unfavorite on either side follows on the other.
-
-Type in the search field to find stickers by emoji (😂), by a word that names
-an emoji ("laugh", "duck"), or by pack name. Stickers carry the emojis they
-express in their metadata, as WhatsApp's own stickers do.
-
-Under **+**, paste a `signal.art` link from
-[signalstickers.org](https://signalstickers.org) (or click **Find packs**), or
-open a `.wastickers` file, to import a pack. Signal packs keep each sticker's
-emoji. Open a pack's tab and use its delete button to remove it. Packs are
-stored as WebP files on your computer.
-
-A WhatsApp sticker pack someone shares in a chat shows its name, publisher,
-and size. Click **View stickers** to download and look at it, and **Add to my
-stickers** to keep it as a pack here. To share one of your packs, open its tab
-and click the send arrow beside its name: it goes to the open chat as a
-WhatsApp sticker pack of up to 60 stickers, with each sticker's emojis.
-
-You can also make packs of your own: type a name under **Make your own** and
-click **Create pack**. Right-click any sticker and choose one of your packs in
-the menu to add it; a check mark shows the packs it is already in, and
-choosing a checked one takes it back out. A pack keeps its own copy of each
-sticker, named by the sticker's content, so the same picture is added once
-however many chats it came from. Deleting a pack removes its copies and leaves
-your favorites and other packs alone.
-
-To make a sticker from a picture, click **Make a sticker from a picture…**
-under **+** and choose a PNG, JPEG, WebP, or GIF. Drag the square to choose
-the part you want and use **Size** to resize it. A picture with a transparent
-background keeps it unless you turn that off, and then the background becomes
-white. Type the emojis that describe it, for search here and for WhatsApp's
-sticker suggestions, then **Send** it to the open chat or **Add to favorites**.
-The sticker is a 512 × 512 WebP under WhatsApp's 100 KB limit.
+Right-click a sticker in a chat or the picker to save it. Saved stickers
+appear in the **Saved** row. To import a pack, click **Find packs**, copy a
+`signal.art` link from [signalstickers.org](https://signalstickers.org), and
+paste it into the field. You can also open a `.wastickers` file. Animated
+stickers remain animated and play on hover. Use the delete button beside a
+pack to remove it. Packs are stored as WebP files on your computer.
 
 ## Attachments
 
-Paste a picture or copied files, drop files on the window, or select them with
-the paperclip.
+Paste a picture, drop files on the window, or select them with the paperclip.
 They stay above the composer until you send them, with the typed text as a
 caption. Press Escape or click a file's close button to remove it. Incoming
 non-sticker attachments up to 64 MiB download when they enter view if automatic
@@ -176,10 +133,8 @@ reply actions remain unavailable.
 Voice messages play in the chat with a seekable waveform. The chip beside the
 waveform cycles the playback speed between 1x, 1.5x, and 2x. Right-click the
 message for every speed, including 1.25x and 1.75x. The choice is remembered
-for later messages. When a voice message ends, playback carries on through the
-voice messages right after it that you have not heard yet, as on the phone;
-any other message ends the run. The speaker's pitch stays the same at every
-speed. The first play sends
+for later messages. The speaker's pitch stays the same at
+every speed. The first play sends
 a played receipt. When the composer is empty, the send button becomes a
 microphone. Press Enter or the send button to send the recording, or Escape or
 the delete button to discard it. ZapFast raises the volume of quiet recordings.
@@ -199,22 +154,8 @@ sharing format:
 
 The search bar finds chats by name, number, or latest message; searches all
 messages stored on this computer; and finds contacts without an existing chat.
-Use `↑`/`↓` to select a matching chat and Enter to open it ready for typing.
 Click a message result to jump to it, or a contact to start a chat. Use
-`Alt+↑/↓`, or `Ctrl+Shift+[` and `Ctrl+Shift+]` as in WhatsApp, to switch chats
-without leaving the composer (Command instead of Ctrl on macOS). Within an open
-chat, `PgUp`/`PgDn` scroll by about a page, and `Home`/`End` jump to the top or
-the newest message (when the input is empty).
-
-Sending while reading older messages keeps your place. Use the
-newest-message button or `End` to return to the latest message when you are
-ready. The chat list scrolls to the top after you send, where the chat now is.
-Under the **Favorites** chip, the list keeps the phone's order and stays in place.
-
-A shared contact message shows the name from its vCard. When the card names a
-WhatsApp account, **Chat** opens a private conversation with it and, if the
-person is not already in ZapFast's contacts, **Add** saves them, adding them to
-your phone's contacts if you chose that for the last contact you added. A card with only a local number shows the number.
+`Alt+↑/↓` to switch chats without leaving the composer.
 
 The chips under the search bar narrow the list to **Unread**, **Private**
 (one-to-one chats), or **Groups**. A chip with unread chats shows how many it
@@ -226,44 +167,12 @@ Right-click a chat to pin, archive, or mute it for eight hours, one week, or
 indefinitely. These changes also apply on your phone. Click the chat header to
 see its picture, number, and group members.
 
-## Labels
-
-Labels are yours alone. They stay on this computer, they never reach your phone,
-and nobody else sees them. They are not WhatsApp Business labels, and ZapFast
-does not read or change those. Open **Labels** in any chat's right-click menu
-and choose **Manage labels…** to make one, with a name and one of the offered
-colours. ZapFast keeps up to twenty.
-
-A chat can wear several labels at once. The **Labels** submenu of a chat's
-right-click menu lists them, with a checkmark beside the ones the chat wears;
-click one to add or remove it. Deleting a label takes it off every chat and
-nothing else; the chats keep their messages.
-
-Once a label exists, a row of label chips appears under the other chips, one
-per label, with its colour and the number of unread chats wearing it, followed
-by a **+** that opens the label manager. Pick a label to list only the chats
-wearing it, channels included. A label is one more chip: picking it lets go of
-**Unread** or **Groups**, and picking one of those lets go of the label. Like
-the other chips, it does not narrow search or the archive. Click the active
-label chip again, or **All**, to see every chat.
-
-The button beside **New chat** (`Ctrl+B`) collapses the list to a narrow column
-of avatars: unread chats show their badge, hovering names a chat, clicking opens
-it, and `Ctrl+B` brings the full list back.
-
 ## Notifications and the tray
 
 Closing the window keeps ZapFast linked in the tray. Click the tray icon or
-launch the app again to reopen it. Launchers that support the Unity Launcher API
-show the unread count as a badge on the app icon: KDE Plasma's taskbar, with
-**Show badges** enabled in the Task Manager settings, and GNOME's Dash to Dock
-or Dash to Panel. Windows overlays a compact unread-message count on ZapFast's
-taskbar button while the window is open, using `99+` above 99. Windows must use
-its regular taskbar icon size for overlays to appear. The count
-does not count toasts remaining in Windows notification history. On Linux and
-Windows, notifications show the chat picture and open the chat at the message
-they announced when clicked. Muted chats do not send notifications, and
-archived chats stay quiet until you unarchive them. You can change both settings.
+launch the app again to reopen it. Notifications show the chat picture and open
+the chat when clicked. Muted chats do not send notifications, and archived
+chats stay quiet until you unarchive them. You can change both settings.
 
 Press `Ctrl+/` or click the keyboard button under the composer to list all
 shortcuts.

@@ -39,6 +39,14 @@ pub fn can_preview_image(path: &Path) -> bool {
     )
 }
 
+/// Documents shown by ZapFast's built-in PDF viewer.
+pub fn can_preview_pdf(path: &Path) -> bool {
+    let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    extension.eq_ignore_ascii_case("pdf")
+}
+
 /// The code of a WhatsApp group invite link such as
 /// `https://chat.whatsapp.com/AbCd123`, which ZapFast opens itself.
 pub fn group_invite_code(value: &str) -> Option<String> {

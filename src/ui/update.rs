@@ -19,8 +19,13 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
         .fill(palette.overlay)
         .stroke(Stroke::new(1.0, palette.outline))
         .corner_radius(CornerRadius::same(theme::RADIUS + 4))
-        .inner_margin(Margin::same(22))
-        .shadow(palette.modal_shadow());
+        .inner_margin(Margin::same(24))
+        .shadow(egui::epaint::Shadow {
+            offset: [0, 10],
+            blur: 40,
+            spread: 0,
+            color: palette.shadow,
+        });
     egui::Window::new("Update ZapFast")
         .id(egui::Id::new("zapfast-update"))
         .title_bar(false)

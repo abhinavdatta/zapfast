@@ -1,0 +1,205 @@
+[package]
+name = "zapfast"
+version = "0.19.0"
+edition = "2024"
+rust-version = "1.98"
+license = "MIT"
+description = "A native WhatsApp client built with Rust and egui"
+homepage = "https://zapfast.rocks"
+repository = "https://github.com/crmne/zapfast"
+keywords = ["whatsapp", "chat", "egui", "messaging"]
+categories = ["gui"]
+
+[lib]
+name = "zapfast"
+path = "src/lib.rs"
+
+[[bin]]
+name = "zapfast"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+# Hashes saved stickers by content. Already included through wacore.
+sha2 = "0.11"
+# Already in the tree through rustls; verifies lock codes.
+ring = "0.17"
+# Decrypts Signal sticker packs. All four crates are already included through
+# wacore at these versions.
+aes = "0.9"
+cbc = { version = "0.2", features = ["alloc", "block-padding"] }
+hkdf = "0.13"
+hmac = "0.13"
+# Reads .wastickers zip archives.
+zip = { version = "5", default-features = false, features = ["deflate"] }
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+directories = "6"
+# UI framework. glow avoids the larger wgpu dependency.
+eframe = { version = "0.36", default-features = false, features = ["accesskit", "glow", "default_fonts", "links", "wayland", "x11", "persistence"] }
+egui = "0.36"
+egui_extras = { version = "0.36", features = ["file", "image", "svg", "webp", "gif"] }
+# Reads the colour emoji font's bitmaps for the demo tour's GIF fixtures. Keep
+# skrifa aligned with epaint to avoid compiling two versions.
+skrifa = "0.44"
+# Decodes JPEG, PNG, WebP, and GIF images.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
+# Renders PDF pages in the built-in viewer. Binds to a Pdfium library at
+# runtime; machines without one keep opening PDFs in their desktop app.
+libloading = "0.8"
+# WhatsApp Web protocol: pairing, encryption, history sync, and media. Version
+# 0.7.0 on crates.io enables `simd`, which needs nightly Rust. This commit builds
+# on stable and includes snapshot recovery and no-progress conflict handling
+# (upstream #1365, #1374 and #1375). Selected features provide Tokio transport, ureq media downloads,
+# and the SQLite device store. The window handles shutdown instead of `signal`.
+# Includes upstream Business pairing (#1440), LockChatUpdate and snapshot replay
+# (#1507), the viewer's channel mute state (#1537), favorite and recent sticker
+# sync events (#1538), boolean AB props (#1539), and favorite chats sync
+# (#1544). Device-store
+# compatibility retains the legacy created_at column.
+whatsapp-rust = { git = "https://github.com/oxidezap/whatsapp-rust", rev = "f7468ae2920a2b0aedbd0848cf121de56a07f93c", default-features = false, features = ["sqlite-storage", "tokio-transport", "tokio-runtime", "ureq-client", "tokio-native"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "fs", "net", "io-util"] }
+# Opens the WhatsApp WebSocket through a proxy. Both crates are already
+# included through the Tokio transport at these versions.
+tokio-websockets = { version = "0.13.3", default-features = false, features = ["client"] }
+http = "1"
+# Encodes HTTP proxy credentials. Already included through several crates.
+base64 = "0.22"
+# SQLCipher encrypts the archive; the device store shares the same library.
+# Bundle OpenSSL so all release platforms use the same encryption provider.
+rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
+keyring-core = "1"
+getrandom = "0.4"
+zeroize = "1"
+rand = "0.10"
+# The updater's HTTP client, with the proxy setting.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "socks"] }
+qrcode = { version = "0.14", default-features = false }
+# Downloads profile pictures. The protocol library already includes this crate
+# and TLS stack.
+ureq = { version = "3", default-features = false, features = ["rustls", "socks-proxy"] }
+jiff = "0.2"
+# Treats joined emoji as one grapheme. Already included through egui.
+unicode-segmentation = "1"
+# Unicode bidi properties; already included through URL/IDNA handling.
+icu_properties = "2.3"
+# Unicode Bidirectional Algorithm for mixed Hebrew, Arabic, and Latin text.
+unicode-bidi = "0.3.18"
+# Canonical decomposition for accent-insensitive chat/contact search.
+icu_normalizer = { version = "2.3", default-features = false, features = ["compiled_data"] }
+# Opens downloaded attachments in their default desktop apps.
+open = "5"
+# File picker, clipboard images, and MIME detection for attachments. Clipboard
+# text support is already included through egui-winit, and MIME detection
+# through egui_extras.
+rfd = { version = "0.17", default-features = false, features = ["xdg-portal", "wayland"] }
+arboard = { version = "3", default-features = false, features = ["image-data", "wayland-data-control"] }
+mime_guess2 = "2"
+# Emoji names, groups, and shortcodes for picker search.
+emojis = "0.9"
+
+# Rasterizes the SVG logo for windows, the tray, and notifications. Already
+# included through egui_extras.
+resvg = { version = "0.45", default-features = false }
+
+# Desktop notifications through D-Bus on Linux and system frameworks elsewhere.
+notify-rust = { version = "4", default-features = false, features = ["z"] }
+openh264 = "0.9"
+mp4 = "0.14"
+# The 0.22 release ends the sound of an interleaved MP4 at the first packet of
+# another track, so a video that has a picture and a sound track plays a tenth
+# of a second of audio and the listener hears silence. This revision is the
+# merge of upstream RustAudio/rodio#833, which skips the packets of every track
+# but the selected one. Drop the pin at the first release that carries it.
+rodio = { git = "https://github.com/RustAudio/rodio", rev = "e89e685d326a684b298c5138adf94caa49e5568c", default-features = false, features = ["playback", "recording", "mp3", "mp4", "wav", "vorbis"] }
+opus = "0.4"
+ogg = "0.9"
+# Converts animated Signal APNG stickers to the animated WebP used by WhatsApp.
+webp-animation = "0.10"
+# A small translation trait for catalogs generated from PO files at build time.
+tr = { version = "0.1.11", default-features = false }
+# Detects the user's system locale across platforms, for the interface language.
+sys-locale = "0.3"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus-secret-service-keyring-store = { version = "1.0.1", features = ["rt-tokio-crypto-rust"] }
+# Linux status-notifier tray item over D-Bus.
+ksni = { version = "0.3", features = ["blocking"] }
+# Reads the time locale's clock format.
+libc = "0.2"
+# Asks the Wayland compositor whether it reports hidden windows as suspended
+# (xdg-shell v6), which decides whether vsync is safe. Already in winit's tree.
+wayland-client = "0.31"
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+# Windows and macOS tray item.
+tray-icon = { version = "0.24", default-features = false }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { version = "1.0.2", features = ["keychain"] }
+# The application menu bar, built with tray-icon's muda at the version
+# fastframe-tray uses.
+tray-icon = { version = "0.25", default-features = false }
+# AppKit calls for the application menus and editing commands, on the main
+# thread.
+objc2 = "0.6"
+raw-window-handle = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSButton", "NSControl", "NSEvent", "NSMenu", "NSMenuItem", "NSResponder", "NSRunningApplication", "NSText", "NSView", "NSWindow"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSDate", "NSDateFormatter", "NSFormatter", "NSGeometry", "NSLocale", "NSObjCRuntime", "NSRunLoop", "NSString"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-native-keyring-store = { version = "1.1", default-features = false }
+winrt-notification = { package = "tauri-winrt-notification", version = "0.7.3" }
+# Windows tray-thread message loop.
+windows-sys = { version = "0.60", features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_Threading", "Win32_System_Registry", "Win32_UI_WindowsAndMessaging"] }
+
+# The icon and version information Windows shows for the executable.
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
+# Checks the default log filter the way fastframe-log's logger reads it.
+# Already in the tree through fastframe-log, at this version.
+env_logger = { version = "0.11", default-features = false }
+# Creates small APNGs in sticker-import tests. Already included through image.
+png = "0.18"
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+# Finds and triggers application menu items in the menu test.
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSMenu", "NSMenuItem"] }
+
+# AppKit menus run on the main thread, which libtest does not test on.
+[[test]]
+name = "macos_menu"
+harness = false
+
+[features]
+# Sample data, layout tests, and screenshots. Not used in release builds.
+demo = []
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# Optimize dependencies in development for usable decryption and UI layout.
+# Keep the application crate incremental.
+[profile.dev.package."*"]
+opt-level = 2
+
+[build-dependencies]
+# Validate/filter unfinished PO entries, then compile catalog text and gettext
+# plural expressions to Rust. Ordinary builds do not need gettext tools.
+include-po = "0.2"
+polib = "0.3"
+
+[patch.crates-io]
+# winit 0.30.13 plus Wayland `Occluded` events for the xdg-shell suspended
+# state, so a hidden window stops painting instead of blocking on vsync.
+# Shared with Spotifast and proposed upstream as rust-windowing/winit#4709;
+# drop the fork when a winit release includes it.
+winit = { git = "https://github.com/crmne/winit", rev = "c8df61a52b8b563e1bb65e0f1d8630289d1c1bd6" }

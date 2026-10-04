@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  audit:
+    name: Dependency advisories
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.22.2 --locked --no-default-features
+      - name: Audit all locked dependencies
+        run: cargo audit
+
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: GUI build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl
+      # After the toolchain, so the cache key follows the pinned rustc. The
+      # key carries no job name, so each job sets its own generation. Saves
+      # only on pushes to main; pull requests restore.
+      - uses: jdx/mr-boxington-action@v1
+        with:
+          cache-generation: quality-v1
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Clippy (default features)
+        run: mbx clippy --locked --all-targets -- -D warnings
+      - name: Clippy (all features)
+        run: mbx clippy --locked --all-targets --all-features -- -D warnings
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: mbx doc --locked --all-features --no-deps
+
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: GUI build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl
+      - uses: jdx/mr-boxington-action@v1
+        with:
+          cache-generation: test-v1
+      # The demo feature carries the headless layout test of every screen.
+      - name: Tests (default features)
+        run: mbx test --locked --all-targets
+      - name: Tests (all features)
+        run: mbx test --locked --all-targets --all-features
+      - name: Build macOS demo
+        if: runner.os == 'macOS'
+        run: mbx build --locked --features demo
+      - name: macOS window smoke test
+        if: runner.os == 'macOS'
+        timeout-minutes: 3
+        run: |
+          target/debug/zapfast --demo --demo-shot "$RUNNER_TEMP/zapfast-content.png" --demo-shot-delay 8000 &
+          demo_pid=$!
+          sleep 6
+          screencapture -x "$RUNNER_TEMP/zapfast-window.png" || true
+          wait "$demo_pid"
+          test -s "$RUNNER_TEMP/zapfast-content.png"
+      - name: macOS preview
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-preview
+          path: ${{ runner.temp }}/zapfast-*.png
+
+  windows-arm64:
+    name: compile (Windows arm64)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+      - run: rustup target add aarch64-pc-windows-msvc
+      - uses: jdx/mr-boxington-action@v1
+        with:
+          cache-generation: windows-arm64-v1
+      - run: mbx check --locked --all-targets --all-features --target aarch64-pc-windows-msvc
+
+  nix:
+    name: Nix package (${{ matrix.system }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            system: x86_64-linux
+          - os: ubuntu-24.04-arm
+            system: aarch64-linux
+    steps:
+      - uses: actions/checkout@v7
+      - uses: wimpysworld/nothing-but-nix@v9
+      - uses: cachix/install-nix-action@v31
+      - uses: nix-community/cache-nix-action@v7
+        with:
+          save: ${{ github.ref == 'refs/heads/main' }}
+          primary-key: nix-${{ matrix.system }}-${{ hashFiles('**/flake.lock') }}
+          restore-prefixes-first-match: nix-${{ matrix.system }}-
+      - name: Check flake outputs
+        run: nix flake check --no-build
+      - name: Build package
+        run: nix build .#default

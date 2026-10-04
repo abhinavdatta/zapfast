@@ -65,20 +65,15 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Files]
 Source: "{#Binary}"; DestDir: "{app}"; Flags: ignoreversion
-; Updaters up to 0.16.5 relaunch the executable they were started from, so an
-; update begun as fastsapp.exe needs that file to come back (as Spotifast's
-; #582). The app deletes the copy once it starts as zapfast.exe with no update
-; running, and later updaters relaunch zapfast.exe themselves.
-Source: "{#Binary}"; DestDir: "{app}"; DestName: "fastsapp.exe"; Flags: ignoreversion
 Source: "..\..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 Source: "zapfast-installer.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [InstallDelete]
 ; AppId keeps upgrades in the existing installation directory. Remove the
-; previous shortcuts; fastsapp.exe is kept above for older updaters.
+; previous executable and shortcuts so they cannot start the old client.
+Type: files; Name: "{app}\fastsapp.exe"
 Type: files; Name: "{autoprograms}\FastsApp.lnk"
 Type: files; Name: "{autodesktop}\FastsApp.lnk"
 

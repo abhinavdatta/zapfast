@@ -1,6 +1,6 @@
 //! Native preview for downloaded image attachments.
 
-use egui::{Align, CornerRadius, Frame, Layout, Margin, Rect, Stroke, Vec2, vec2};
+use egui::{Align, CornerRadius, Frame, Layout, Margin, Rect, Stroke, Vec2, pos2, vec2};
 
 use crate::app::App;
 use crate::model::Action;
@@ -15,8 +15,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
         .fill(palette.overlay)
         .stroke(Stroke::new(1.0, palette.outline))
         .corner_radius(CornerRadius::same(theme::RADIUS + 4))
-        .inner_margin(Margin::same(14))
-        .shadow(palette.modal_shadow());
+        .inner_margin(Margin::same(14));
     let viewport = ctx.content_rect().size();
     let response = egui::Modal::new(egui::Id::new("image-preview"))
         .frame(frame)
@@ -44,39 +43,16 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                     {
                         app.actions.push(Action::CloseImagePreview);
                     }
-                    if theme::icon_button(
-                        ui,
-                        Icon::ExternalLink,
-                        18.0,
-                        palette.secondary,
-                        palette.text,
-                        "Open in another app",
-                    )
-                    .clicked()
-                    {
+                    if ui.button("Open externally").clicked() {
                         app.actions
                             .push(Action::OpenFile(preview.path().to_owned()));
                     }
-                    let copy_hint = format!(
-                        "{} ({})",
-                        crate::i18n::gettext(app.locale, "Copy image"),
-                        super::keys::label("Ctrl+C"),
-                    );
-                    if theme::icon_button(
-                        ui,
-                        Icon::Copy,
-                        18.0,
-                        palette.secondary,
-                        palette.text,
-                        &copy_hint,
-                    )
-                    .clicked()
-                    {
-                        app.actions
-                            .push(Action::CopyImage(preview.path().to_owned()));
+                    if ui.button("Fit").clicked() {
+                        app.actions.push(Action::FitImage);
                     }
-                    ui.add_space(8.0);
-                    // Right to left: zoom in, the current scale, zoom out.
+                    if ui.button("100%").clicked() {
+                        app.actions.push(Action::ImageFullSize);
+                    }
                     if theme::icon_button(
                         ui,
                         Icon::Plus,
@@ -88,27 +64,6 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                     .clicked()
                     {
                         app.actions.push(Action::ZoomImageIn);
-                    }
-                    // One control shows the scale and switches between fitting
-                    // the window and the original size.
-                    let (label, hint, action) = if preview.is_fit() {
-                        (
-                            "Fit".to_owned(),
-                            "Show at original size",
-                            Action::ImageActualSize,
-                        )
-                    } else {
-                        (
-                            format!("{:.0}%", preview.zoom() * 100.0),
-                            "Fit to the window (0)",
-                            Action::FitImage,
-                        )
-                    };
-                    if theme::soft_button(ui, &palette, None, &label, false)
-                        .on_hover_text(hint)
-                        .clicked()
-                    {
-                        app.actions.push(action);
                     }
                     if theme::icon_button(
                         ui,
@@ -122,153 +77,57 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                     {
                         app.actions.push(Action::ZoomImageOut);
                     }
+                    if theme::icon_button(
+                        ui,
+                        Icon::Pencil,
+                        18.0,
+                        palette.secondary,
+                        palette.text,
+                        "Edit photo (rotate, flip, undo)",
+                    )
+                    .clicked()
+                    {
+                        app.actions
+                            .push(Action::OpenImageEditor(preview.path().to_owned()));
+                    }
+                    let zoom = if preview.is_fit() {
+                        "Fit".to_owned()
+                    } else {
+                        format!("{:.0}%", preview.zoom() * 100.0)
+                    };
+                    ui.label(zoom);
                 });
             });
             ui.separator();
 
-            // The scroll area below takes this rect as its viewport.
-            let area = ui.available_rect_before_wrap();
-            let canvas = area.size().max(Vec2::ZERO);
+            let canvas = vec2(
+                ui.available_width().max(0.0),
+                ui.available_height().max(0.0),
+            );
             // Registered with the image cache like every other draw site, so a
             // sweep never releases the picture while it is on screen.
+            // Where the open picture sits in the chat's gallery, for the
+            // swipe and arrow navigation.
+            let gallery = app.open_chat_gallery();
+            let gallery_index = gallery
+                .iter()
+                .position(|path| path == preview.path());
             let image = crate::ui::widgets::file_image(ui, preview.path());
             match image.load_for_size(ctx, canvas) {
                 Ok(egui::load::TexturePoll::Ready { texture }) => {
                     let size = display_size(texture.size, canvas, preview.is_fit(), preview.zoom());
-                    if preview.is_fit()
-                        && texture.size.x > 0.0
-                        && let Some(state) = &mut app.image_preview
-                    {
-                        state.set_fit_scale(size.x / texture.size.x);
-                    }
-                    let scroll_id =
-                        ui.make_persistent_id(egui::IdSalt::new("image-preview-scroll"));
-                    let trackpad = app.scrolling.from_trackpad();
-                    // Read before the scroll area, which would otherwise take the
-                    // wheel. The zoom itself is applied by `App` after the frame.
-                    let zoom = zoom_input(ui, area, trackpad).and_then(|(factor, pointer)| {
-                        let mut next = app.image_preview.clone()?;
-                        next.zoom_by(factor);
-                        let zoomed = display_size(texture.size, canvas, next.is_fit(), next.zoom());
-                        Some((factor, pointer, zoomed))
-                    });
-                    let output = egui::ScrollArea::both()
+                    egui::ScrollArea::both()
                         .id_salt("image-preview-scroll")
                         .auto_shrink([false, false])
-                        // egui drags only on touch screens by default.
-                        .scroll_source(egui::scroll_area::ScrollSource {
-                            drag: egui::scroll_area::DragScroll::Always,
-                            ..Default::default()
-                        })
-                        .on_hover_cursor(egui::CursorIcon::Grab)
-                        .on_drag_cursor(egui::CursorIcon::Grabbing)
                         .show(ui, |ui| {
                             ui.allocate_ui_with_layout(
                                 canvas.max(size),
                                 Layout::centered_and_justified(egui::Direction::TopDown),
                                 |ui| {
-                                    let image_response = ui.add(
-                                        image.fit_to_exact_size(size).sense(egui::Sense::click()),
-                                    );
-                                    let copy_label = crate::i18n::gettext(app.locale, "Copy image");
-                                    let save_label = crate::i18n::gettext(app.locale, "Save as…");
-                                    let open_label =
-                                        crate::i18n::gettext(app.locale, "Open in another app");
-                                    let menu_width = crate::ui::widgets::menu_width(
-                                        ui,
-                                        &[&copy_label, &save_label, &open_label],
-                                        true,
-                                    )
-                                    .max(180.0);
-                                    egui::Popup::context_menu(&image_response)
-                                        .width(menu_width)
-                                        .frame(crate::ui::widgets::menu_frame(&palette))
-                                        .show(|ui| {
-                                            if crate::ui::widgets::menu_item(
-                                                ui,
-                                                &palette,
-                                                Some(Icon::Copy),
-                                                &copy_label,
-                                            ) {
-                                                app.actions.push(Action::CopyImage(
-                                                    preview.path().to_owned(),
-                                                ));
-                                            }
-                                            if crate::ui::widgets::menu_item(
-                                                ui,
-                                                &palette,
-                                                Some(Icon::Download),
-                                                &save_label,
-                                            ) {
-                                                let name = preview
-                                                    .path()
-                                                    .file_name()
-                                                    .and_then(|name| name.to_str())
-                                                    .unwrap_or("image.png")
-                                                    .to_owned();
-                                                app.actions.push(Action::SaveAttachmentAs {
-                                                    path: preview.path().to_owned(),
-                                                    name,
-                                                });
-                                            }
-                                            if crate::ui::widgets::menu_item(
-                                                ui,
-                                                &palette,
-                                                Some(Icon::ExternalLink),
-                                                &open_label,
-                                            ) {
-                                                app.actions.push(Action::OpenFile(
-                                                    preview.path().to_owned(),
-                                                ));
-                                            }
-                                        });
-                                    image_response
-                                        .interact_pointer_pos()
-                                        .filter(|_| image_response.double_clicked())
+                                    ui.add(image.fit_to_exact_size(size));
                                 },
-                            )
-                            .inner
-                        });
-                    // Stored after the scroll area, which clamps its offset to
-                    // this frame's size; the next frame lays out the zoomed size
-                    // with the pointed-at pixel still under the pointer.
-                    if let Some((factor, pointer, zoomed)) = zoom {
-                        let mut scroll = output.state;
-                        scroll.offset = crate::image_preview::anchored_offset(
-                            canvas,
-                            size,
-                            zoomed,
-                            output.state.offset,
-                            pointer,
-                            pointer,
-                        );
-                        scroll.store(ctx, scroll_id);
-                        app.actions.push(Action::ZoomImageBy(factor));
-                    }
-                    // The header's Fit/% toggle. The original size opens with the
-                    // double-clicked point in the middle: the offset is stored for
-                    // the next frame, which lays out the new size.
-                    if let Some(pos) = output.inner {
-                        if app
-                            .image_preview
-                            .as_ref()
-                            .is_some_and(crate::image_preview::PreviewState::is_fit)
-                        {
-                            let mut scroll = output.state;
-                            scroll.offset = crate::image_preview::anchored_offset(
-                                canvas,
-                                size,
-                                texture.size,
-                                output.state.offset,
-                                pos - area.min,
-                                canvas / 2.0,
                             );
-                            scroll.store(ctx, scroll_id);
-                            app.actions.push(Action::ImageActualSize);
-                        } else {
-                            app.actions.push(Action::FitImage);
-                        }
-                    }
+                        });
                 }
                 Ok(egui::load::TexturePoll::Pending { .. }) => {
                     let (rect, _) = ui.allocate_exact_size(canvas, egui::Sense::hover());
@@ -288,61 +147,92 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                     );
                 }
             }
+            // Swipe between the chat's pictures while fitted, like WhatsApp's
+            // phone viewer: a quick rightward flick steps back, leftward
+            // forward. Zoomed-in drags keep panning the picture.
+            let swipe = ctx.input(|input| {
+                if !preview.is_fit() || !input.pointer.any_released() {
+                    return 0i32;
+                }
+                let velocity = input.pointer.velocity().x;
+                if velocity > 500.0 {
+                    -1
+                } else if velocity < -500.0 {
+                    1
+                } else {
+                    0
+                }
+            });
+            match swipe {
+                -1 => app.actions.push(Action::ImagePrev),
+                1 => app.actions.push(Action::ImageNext),
+                _ => {}
+            }
+            // Edge arrows over the picture when more of the chat's gallery
+            // sits on either side, like the desktop viewer's hot zones.
+            if let Some(index) = gallery_index {
+                let body = ui.max_rect();
+                let arrow = |ui: &mut egui::Ui,
+                             app: &mut App,
+                             rect: Rect,
+                             id: &str,
+                             icon: Icon,
+                             action: Action,
+                             tip: &str| {
+                    let response = ui
+                        .interact(rect, egui::Id::new(id), egui::Sense::click())
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(tip);
+                    if response.hovered() {
+                        ui.painter()
+                            .rect_filled(rect, 10.0, palette.shadow.gamma_multiply(0.6));
+                    }
+                    theme::paint_icon(
+                        ui,
+                        icon,
+                        Rect::from_center_size(rect.center(), Vec2::splat(28.0)),
+                        28.0,
+                        palette.text,
+                    );
+                    if response.clicked() {
+                        app.actions.push(action);
+                    }
+                };
+                if index + 1 < gallery.len() {
+                    let rect = Rect::from_min_size(
+                        pos2(body.left(), body.center().y - 110.0),
+                        vec2(44.0, 220.0),
+                    );
+                    arrow(
+                        ui,
+                        app,
+                        rect,
+                        "image-next",
+                        Icon::ChevronRight,
+                        Action::ImageNext,
+                        "Next picture (Right)",
+                    );
+                }
+                if index > 0 {
+                    let rect = Rect::from_min_size(
+                        pos2(body.right() - 44.0, body.center().y - 110.0),
+                        vec2(44.0, 220.0),
+                    );
+                    arrow(
+                        ui,
+                        app,
+                        rect,
+                        "image-prev",
+                        Icon::ChevronLeft,
+                        Action::ImagePrev,
+                        "Previous picture (Left)",
+                    );
+                }
+            }
         });
     if response.should_close() {
         app.actions.push(Action::CloseImagePreview);
     }
-}
-
-/// Zoom factor the wheel or a pinch asks for over the preview area, with the
-/// anchor point relative to the picture area. Each wheel notch is one header
-/// zoom step. A plain mouse wheel zooms instead of scrolling, so its delta is
-/// taken from the scroll area. Windows and X11 report touchpads as wheel
-/// lines, so two fingers zoom there; only scrolling reported in points
-/// (macOS, Wayland) keeps moving the picture.
-fn zoom_input(ui: &mut egui::Ui, area: Rect, trackpad: bool) -> Option<(f32, Vec2)> {
-    let (touch, hover) = ui.input(|input| {
-        (
-            input.multi_touch().map(|touch| touch.center_pos),
-            input.pointer.hover_pos(),
-        )
-    });
-    let anchor = touch.or(hover)?;
-    if !area.contains(anchor) || touch.is_none() && !ui.rect_contains_pointer(area) {
-        return None;
-    }
-    let (zoom_speed, line_speed) = ui.ctx().options(|options| {
-        let input = &options.input_options;
-        (input.scroll_zoom_speed, input.line_scroll_speed)
-    });
-    let step = crate::image_preview::PreviewState::ZOOM_STEP;
-    let factor = ui.input_mut(|input| {
-        let pinch = input.multi_touch().is_some()
-            || input
-                .events
-                .iter()
-                .any(|event| matches!(event, egui::Event::Zoom(_)));
-        let mut factor = input.zoom_delta();
-        if !pinch {
-            // Without a pinch the zoom came from Ctrl/Cmd+wheel (Windows
-            // touchpad pinches included), to which egui applies its own curve,
-            // exp(scroll_zoom_speed * points). It keeps the modifiers from the
-            // start of the gesture, so this checks the source, not the keys.
-            factor = factor.powf(step.ln() / (zoom_speed * line_speed));
-        }
-        // Shift and Alt turn the wheel sideways; Ctrl pressed during a plain
-        // notch must not hand the rest of it to the scroll area.
-        if !trackpad
-            && !input.modifiers.shift
-            && !input.modifiers.alt
-            && input.smooth_scroll_delta.y != 0.0
-        {
-            factor *= step.powf(input.smooth_scroll_delta.y / line_speed);
-            input.smooth_scroll_delta.y = 0.0;
-        }
-        factor
-    });
-    (factor != 1.0).then_some((factor, anchor - area.min))
 }
 
 /// Size the image is drawn at from the texture's intrinsic pixel dimensions:

@@ -1,8 +1,8 @@
-# Shared CLI: gem install native-packages --version 0.8.1
+# Shared CLI: gem install native-packages --version 0.7.0
 ---
 schema: 1
 tool:
-  version: 0.8.1
+  version: 0.7.0
   nfpm: 2.47.0
 # Ubuntu 24.04 and Debian 13 use ALSA's t64 package name.
 libraries:
@@ -107,7 +107,6 @@ targets:
     formats:
     - deb
     - rpm
-    - appimage
     input:
       local: dist/zapfast-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
       release_asset: zapfast-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
@@ -119,7 +118,6 @@ targets:
     formats:
     - deb
     - rpm
-    - appimage
     input:
       local: dist/zapfast-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
       release_asset: zapfast-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz

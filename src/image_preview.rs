@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use egui::{Event, Key, Modifiers, Vec2, vec2};
+use egui::{Event, Key, Modifiers};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OpenTarget {
@@ -31,6 +31,8 @@ pub fn preview_action(key: Key, modifiers: Modifiers) -> Option<crate::model::Ac
         }
         (false, Key::Minus) if !modifiers.any() => Some(crate::model::Action::ZoomImageOut),
         (false, Key::Num0) if !modifiers.any() => Some(crate::model::Action::FitImage),
+        (false, Key::ArrowLeft) if !modifiers.any() => Some(crate::model::Action::ImagePrev),
+        (false, Key::ArrowRight) if !modifiers.any() => Some(crate::model::Action::ImageNext),
         _ => None,
     }
 }
@@ -47,7 +49,8 @@ pub fn consumes_key(key: &Event) -> bool {
 }
 
 /// Keys the preview modal needs for focus traversal, activation, and
-/// scrolling its own controls.
+/// scrolling its own controls. Arrow left/right stay reserved: the plain
+/// arrows page through the chat's gallery.
 fn is_modal_navigation(key: Key) -> bool {
     matches!(
         key,
@@ -56,8 +59,6 @@ fn is_modal_navigation(key: Key) -> bool {
             | Key::Space
             | Key::ArrowUp
             | Key::ArrowDown
-            | Key::ArrowLeft
-            | Key::ArrowRight
             | Key::Home
             | Key::End
             | Key::PageUp
@@ -80,55 +81,23 @@ pub fn zoomed_size(width: f32, height: f32, zoom: f32) -> (f32, f32) {
     (width * zoom, height * zoom)
 }
 
-/// Scroll offset that brings the picture point at `from` to `to` once the
-/// picture is resized from `old` to `new`, both points relative to the
-/// viewport's top left. With `from == to` the pixel under the pointer stays
-/// under it while zooming. The preview centres the picture in content of
-/// `viewport.max(size)`, so that is the layout inverted here; the result is
-/// clamped to the range the scroll area allows, which keeps a picture
-/// narrower or shorter than the viewport centred on that axis.
-pub fn anchored_offset(
-    viewport: Vec2,
-    old: Vec2,
-    new: Vec2,
-    offset: Vec2,
-    from: Vec2,
-    to: Vec2,
-) -> Vec2 {
-    let axis = |d: usize| {
-        let origin = |size: f32| (viewport[d].max(size) - size) / 2.0;
-        let fraction = if old[d] > 0.0 {
-            (offset[d] + from[d] - origin(old[d])) / old[d]
-        } else {
-            0.5
-        };
-        let limit = viewport[d].max(new[d]) - viewport[d];
-        (origin(new[d]) + fraction * new[d] - to[d]).clamp(0.0, limit)
-    };
-    vec2(axis(0), axis(1))
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreviewState {
     path: PathBuf,
     zoom: f32,
     fit: bool,
-    /// Scale the fitted image is drawn at, so zooming starts from what is
-    /// on screen rather than from the original pixels.
-    fit_scale: f32,
 }
 
 impl PreviewState {
     const MIN_ZOOM: f32 = 0.25;
     const MAX_ZOOM: f32 = 4.0;
-    pub const ZOOM_STEP: f32 = 1.25;
+    const ZOOM_STEP: f32 = 1.25;
 
     pub fn new(path: PathBuf) -> Self {
         Self {
             path,
             zoom: 1.0,
             fit: true,
-            fit_scale: 1.0,
         }
     }
 
@@ -144,43 +113,14 @@ impl PreviewState {
         self.fit
     }
 
-    /// The scale on screen: the fitted scale while fitting, else the zoom.
-    pub fn scale(&self) -> f32 {
-        if self.fit { self.fit_scale } else { self.zoom }
-    }
-
-    /// Records the scale the view fitted the image at.
-    pub fn set_fit_scale(&mut self, scale: f32) {
-        if scale.is_finite() && scale > 0.0 {
-            self.fit_scale = scale;
-        }
-    }
-
     pub fn zoom_in(&mut self) {
-        self.zoom_by(Self::ZOOM_STEP);
+        self.fit = false;
+        self.zoom = (self.zoom * Self::ZOOM_STEP).min(Self::MAX_ZOOM);
     }
 
     pub fn zoom_out(&mut self) {
-        self.zoom_by(1.0 / Self::ZOOM_STEP);
-    }
-
-    /// Scales what is on screen by `factor` within the zoom limits. The
-    /// limits never reverse the direction: a picture fitted below the
-    /// minimum does not grow when zoomed out, so it stays fitted.
-    pub fn zoom_by(&mut self, factor: f32) {
-        if !factor.is_finite() || factor <= 0.0 {
-            return;
-        }
-        let scale = self.scale();
-        let zoom = if factor > 1.0 {
-            (scale * factor).min(Self::MAX_ZOOM).max(scale)
-        } else {
-            (scale * factor).max(Self::MIN_ZOOM).min(scale)
-        };
-        if zoom != scale {
-            self.zoom = zoom;
-            self.fit = false;
-        }
+        self.fit = false;
+        self.zoom = (self.zoom / Self::ZOOM_STEP).max(Self::MIN_ZOOM);
     }
 
     pub fn fit(&mut self) {
@@ -188,10 +128,10 @@ impl PreviewState {
         self.zoom = 1.0;
     }
 
-    /// Shows the original pixels at 100%.
-    pub fn actual_size(&mut self) {
+    /// Shows the image at an absolute zoom, 1.0 being the original pixels.
+    pub fn zoom_set(&mut self, zoom: f32) {
         self.fit = false;
-        self.zoom = 1.0;
+        self.zoom = zoom.clamp(Self::MIN_ZOOM, Self::MAX_ZOOM);
     }
 }
 
@@ -199,20 +139,6 @@ impl PreviewState {
 mod tests {
     use super::*;
     use std::path::{Path, PathBuf};
-
-    #[test]
-    fn zooming_from_fit_starts_at_the_fitted_scale() {
-        let mut preview = PreviewState::new(PathBuf::from("photo.png"));
-        preview.set_fit_scale(0.4);
-        preview.zoom_in();
-        assert!(!preview.is_fit());
-        assert!((preview.zoom() - 0.5).abs() < 1e-6);
-        preview.actual_size();
-        assert_eq!(preview.zoom(), 1.0);
-        preview.fit();
-        preview.zoom_out();
-        assert!((preview.zoom() - 0.32).abs() < 1e-6);
-    }
 
     #[test]
     fn rendered_supported_images_route_to_the_preview() {
@@ -327,36 +253,5 @@ mod tests {
         preview.fit();
         assert!(preview.is_fit());
         assert_eq!(preview.zoom(), 1.0);
-    }
-
-    #[test]
-    fn zooming_at_the_limits_never_goes_the_wrong_way() {
-        let mut preview = PreviewState::new(PathBuf::from("photo.png"));
-        preview.set_fit_scale(0.1);
-        preview.zoom_by(0.8);
-        assert_eq!(preview.scale(), 0.1, "a tiny fit must not jump up");
-        assert!(preview.is_fit());
-        preview.zoom_by(1.1);
-        assert!((preview.zoom() - 0.11).abs() < 1e-6);
-
-        preview.actual_size();
-        preview.zoom_by(3.9);
-        preview.zoom_by(1.1);
-        assert_eq!(preview.zoom(), 4.0);
-        preview.zoom_by(0.001);
-        assert_eq!(preview.zoom(), 0.25);
-    }
-
-    #[test]
-    fn a_picture_smaller_than_the_viewport_stays_centred() {
-        let offset = anchored_offset(
-            vec2(800.0, 600.0),
-            vec2(1600.0, 1200.0),
-            vec2(400.0, 300.0),
-            vec2(500.0, 400.0),
-            vec2(10.0, 20.0),
-            vec2(10.0, 20.0),
-        );
-        assert_eq!(offset, Vec2::ZERO);
     }
 }
