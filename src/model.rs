@@ -910,6 +910,9 @@ pub enum Action {
     CloseImagePreview,
     OpenFile(PathBuf),
     OpenFolder(PathBuf),
+    /// Shows a file selected in the system file manager, for files ZapFast
+    /// does not open itself.
+    RevealFile(PathBuf),
     /// Saves a copy of a downloaded attachment where the person chooses.
     SaveAttachmentAs {
         path: PathBuf,

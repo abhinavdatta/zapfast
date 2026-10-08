@@ -38,6 +38,7 @@ This fork adds several features beyond the upstream v0.19.0 release:
 - **Photo editor with undo/redo** — Edit photos before sending: rotate left/right, flip horizontally/vertically, with step-by-step undo (Ctrl+Z) and redo (Ctrl+Shift+Z), like WhatsApp's editor.
 - **PDF viewer** — Open PDF attachments in the built-in viewer with fit, zoom controls, and keyboard shortcuts when Pdfium is available.
 - **Sidebar collapse fix** — Fixed a bug where collapsing the sidebar would cause issues with tab navigation.
+- **More attachments open directly** — Archives (zip, rar, 7z, tar and friends), legacy Office documents (doc, xls, ppt) and common data files open in their desktop application; for anything ZapFast still does not open itself, the file manager shows the exact file selected in its folder instead of a bare folder.
 - **Optimized release build** — cross-crate LTO, single codegen unit, stripped symbols and maximum optimization for a smaller, faster binary.
 - **Roster navigation fixes** — Status stories now open reliably when a chat was open before, and opening a community or channel conversation keeps every tab working: the conversation draws beside the page's roster (like WhatsApp Web) instead of replacing the whole interface, with the story view taking precedence over any stale open chat.
 

@@ -24,6 +24,46 @@ pub fn open_or_reveal(path: &Path) -> Result<(), String> {
 
 type Attempt<'a> = Box<dyn Fn() -> Result<(), String> + 'a>;
 
+/// Shows `path` selected in the system file manager, for files ZapFast does
+/// not open itself. Unlike opening the folder bare, the reader sees exactly
+/// which file a chat was pointing at.
+///
+/// The calls return quickly, but `ShowItems` waits for the file manager, so
+/// keep the caller off the interface thread when that matters.
+pub fn reveal(path: &Path) -> Result<(), String> {
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        if linux::show_items(path).is_ok() {
+            return Ok(());
+        }
+        if let Some(folder) = path.parent() {
+            return open::that_detached(folder).map_err(|error| error.to_string());
+        }
+        Err("no file manager is available".to_owned())
+    }
+    #[cfg(not(all(unix, not(target_os = "macos"))))]
+    {
+        #[cfg(target_os = "macos")]
+        let mut command = {
+            let mut command = std::process::Command::new("open");
+            command.arg("-R").arg(path);
+            command
+        };
+        #[cfg(windows)]
+        let mut command = {
+            // Explorer signals success with exit code 1, so spawn and move on
+            // rather than judging by its status.
+            let mut command = std::process::Command::new("explorer");
+            command.arg(format!("/select,{}", path.display()));
+            command
+        };
+        command
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+}
+
 /// Runs the attempts in order and stops at the first that works; if none
 /// does, the last error explains why.
 fn first_success(attempts: &[Attempt<'_>]) -> Result<(), String> {

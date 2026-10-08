@@ -2971,10 +2971,8 @@ impl App {
                         self.toast_error(format!("Could not open the attachment: {error}"));
                     }
                 } else {
-                    self.toast("For safety, open this file yourself from its folder");
-                    if let Some(folder) = path.parent() {
-                        self.actions.push(Action::OpenFolder(folder.to_owned()));
-                    }
+                    self.toast("For safety, ZapFast does not open this file type. It is selected in its folder.");
+                    self.actions.push(Action::RevealFile(path));
                 }
             }
             Action::SaveAttachmentAs { path, name } => {
@@ -2988,6 +2986,15 @@ impl App {
                     }
                 } else {
                     self.toast_error("The folder is unavailable");
+                }
+            }
+            Action::RevealFile(path) => {
+                if path.is_file() {
+                    if let Err(error) = crate::opener::reveal(&path) {
+                        self.toast_error(format!("Could not show the file: {error}"));
+                    }
+                } else {
+                    self.toast_error("The file is unavailable");
                 }
             }
             Action::OpenUrl(url) => {
@@ -6158,7 +6165,7 @@ mod tests {
         assert!(
             app.actions
                 .iter()
-                .any(|action| matches!(action, Action::OpenFolder(_)))
+                .any(|action| matches!(action, Action::RevealFile(_)))
         );
     }
 

@@ -20,6 +20,7 @@ pub mod macos;
 pub mod markup;
 pub mod model;
 pub mod notify;
+pub mod opener;
 pub mod paths;
 pub mod pdf_preview;
 pub mod pdf_render;
