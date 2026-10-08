@@ -5,11 +5,16 @@ use crate::model::Chat;
 use crate::theme::{self, Icon};
 use crate::ui::widgets;
 
-use super::{explainer, roster};
+use super::{explainer, roster, showing_conversation};
+use crate::ui::conversation;
 
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     roster(app, ui, "Communities", body);
     super::central(app, ui, |app, ui| {
+        if showing_conversation(app) {
+            conversation::show(app, ui);
+            return;
+        }
         explainer(
             app,
             ui,

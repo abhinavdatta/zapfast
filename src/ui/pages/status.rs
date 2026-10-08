@@ -8,11 +8,20 @@ use crate::model::{Action, StatusEntry};
 use crate::theme::{self, Icon};
 use crate::ui::widgets;
 
-use super::{explainer, roster};
+use super::{central, explainer, roster, showing_conversation};
+use crate::ui::conversation;
 
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     roster(app, ui, "Status", body);
-    super::central(app, ui, |app, ui| {
+    central(app, ui, |app, ui| {
+        // An opened conversation from another roster overlays the central
+        // pane, like WhatsApp Web keeps the roster beside the opened chat.
+        // A story being played takes precedence over that overlay, so a
+        // stale open chat can never hide the Status updates.
+        if app.status_story.is_none() && showing_conversation(app) {
+            conversation::show(app, ui);
+            return;
+        }
         let entries = app.status_entries();
         match app.status_story.as_ref().map(|story| story.author.clone()) {
             Some(author) => story_view(app, ui, &author, &entries),
@@ -171,8 +180,7 @@ fn story_view(app: &mut App, ui: &mut egui::Ui, author: &str, entries: &[StatusE
     let page = index.min(messages.len() - 1);
     // A click anywhere steps forward and closes at the end, like tapping a
     // story; ctrl+click steps back.
-    let (cover, cover_response) =
-        ui.allocate_exact_size(ui.available_size(), egui::Sense::click());
+    let (cover, cover_response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click());
     if cover_response.clicked() {
         if ui.input(|input| input.modifiers.command) {
             app.actions.push(Action::StoryPrev);

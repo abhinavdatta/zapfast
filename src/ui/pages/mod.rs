@@ -6,6 +6,8 @@
 
 pub mod channels;
 pub mod communities;
+#[cfg(test)]
+mod page_tests;
 pub mod status;
 
 use egui::{Frame, Margin};
@@ -121,6 +123,17 @@ pub(crate) fn explainer(app: &App, ui: &mut egui::Ui, icon: Icon, title: &str, b
 /// Opens a chat from a roster row, keeping the page when the row is read-only.
 pub(crate) fn open_chat(app: &mut App, chat_id: &str) {
     app.actions.push(Action::OpenChat(chat_id.to_owned()));
+}
+
+/// Whether a real conversation overlays the roster pages' central pane.
+/// Like WhatsApp Web, the opened chat draws in the conversation's place
+/// while the page's roster stays visible beside it. The status round-up
+/// never opens as a conversation.
+pub(crate) fn showing_conversation(app: &App) -> bool {
+    app.open_chat.is_some()
+        && !app
+            .chat(app.open_chat.as_deref().unwrap_or_default())
+            .is_some_and(|chat| chat.is_status())
 }
 
 /// Lays a single-line subtitle out inside `max_width`, ending past the width

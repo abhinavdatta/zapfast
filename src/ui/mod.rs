@@ -70,27 +70,13 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     }
     egui::CentralPanel::default()
         .frame(central_frame(app))
-        .show(ui, |ui| {
-            // A conversation opened from a roster overlays that page's
-            // central pane, exactly like WhatsApp Web, which keeps the
-            // roster visible beside the opened chat.
-            let showing_conversation = app.open_chat.is_some()
-                && matches!(app.page, Page::Status | Page::Channels | Page::Communities)
-                && !app
-                    .chat(app.open_chat.as_deref().unwrap_or_default())
-                    .is_some_and(|chat| chat.is_status());
-            if showing_conversation {
-                conversation::show(app, ui);
-            } else {
-                match app.page {
-                    Page::Settings => settings::show(app, ui),
-                    Page::Chats => conversation::show(app, ui),
-                    Page::Status => pages::status::show(app, ui),
-                    Page::Channels => pages::channels::show(app, ui),
-                    Page::Communities => pages::communities::show(app, ui),
-                    Page::Wallpaper => settings::wallpaper_show(app, ui),
-                }
-            }
+        .show(ui, |ui| match app.page {
+            Page::Settings => settings::show(app, ui),
+            Page::Chats => conversation::show(app, ui),
+            Page::Status => pages::status::show(app, ui),
+            Page::Channels => pages::channels::show(app, ui),
+            Page::Communities => pages::communities::show(app, ui),
+            Page::Wallpaper => settings::wallpaper_show(app, ui),
         });
     focus::finish(ctx, main_navigation);
     update::show(app, ctx);
