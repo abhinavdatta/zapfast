@@ -2252,10 +2252,7 @@ impl App {
         // Opening a conversation from the Status, Channels, or Communities
         // roster keeps that page, like WhatsApp Web, which draws the chat in
         // the same window over the roster. Chats and Settings switch pages.
-        if !matches!(
-            self.page,
-            Page::Status | Page::Channels | Page::Communities
-        ) {
+        if !matches!(self.page, Page::Status | Page::Channels | Page::Communities) {
             self.page = Page::Chats;
         }
         self.scroll_to_bottom = true;
@@ -3153,21 +3150,19 @@ impl App {
                     self.backend.send(Command::PickFiles(chat));
                 }
             }
-            Action::OpenImageEditor(path) => {
-                match crate::image_edit::Editor::open(&path) {
-                    Ok(editor) => {
-                        self.image_editor = Some(editor);
-                        self.dialog = None;
-                        self.picker = None;
-                        ctx.memory_mut(|memory| {
-                            if let Some(focused) = memory.focused() {
-                                memory.surrender_focus(focused);
-                            }
-                        });
-                    }
-                    Err(error) => self.toast_error(&error),
+            Action::OpenImageEditor(path) => match crate::image_edit::Editor::open(&path) {
+                Ok(editor) => {
+                    self.image_editor = Some(editor);
+                    self.dialog = None;
+                    self.picker = None;
+                    ctx.memory_mut(|memory| {
+                        if let Some(focused) = memory.focused() {
+                            memory.surrender_focus(focused);
+                        }
+                    });
                 }
-            }
+                Err(error) => self.toast_error(&error),
+            },
             Action::CloseImageEditor => {
                 self.image_editor = None;
                 self.refocus_composer(ctx);

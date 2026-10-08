@@ -90,8 +90,11 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                 [editor.width.max(1), editor.height.max(1)],
                 &editor.rgba,
             );
-            let handle =
-                ctx.load_texture("image-editor-preview", texture, egui::TextureOptions::LINEAR);
+            let handle = ctx.load_texture(
+                "image-editor-preview",
+                texture,
+                egui::TextureOptions::LINEAR,
+            );
             let fitted = fit_into(handle.size_vec2(), canvas);
             let (body, _) = ui.allocate_exact_size(canvas.max(fitted), Sense::hover());
             egui::Image::from_texture((handle.id(), fitted))

@@ -1362,7 +1362,8 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
             "image-editor" => {
                 let (photo, _) = sample_files(app);
                 app.open_chat = Some(SAMPLES[0].id.into());
-                app.actions.push(crate::model::Action::OpenImageEditor(photo));
+                app.actions
+                    .push(crate::model::Action::OpenImageEditor(photo));
             }
             "omarchy" | "omarchy-light" => {
                 let mut themes: Vec<_> = crate::theme::presets::themes().collect();

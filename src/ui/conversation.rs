@@ -5560,9 +5560,7 @@ fn pending_strip(app: &mut App, ui: &mut egui::Ui) {
                 // send-time editor on the staged file.
                 let is_editable_picture = match item {
                     crate::app::Pending::Picture { .. } => true,
-                    crate::app::Pending::File(path) => {
-                        crate::app::Pending::is_picture_file(path)
-                    }
+                    crate::app::Pending::File(path) => crate::app::Pending::is_picture_file(path),
                 };
                 if is_editable_picture {
                     let edit = Rect::from_center_size(

@@ -7,8 +7,8 @@
 
 use std::borrow::Cow;
 
-use serde::{Deserialize, Serialize};
 use ::tr::Translator;
+use serde::{Deserialize, Serialize};
 
 include!(concat!(env!("OUT_DIR"), "/catalogs.rs"));
 

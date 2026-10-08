@@ -109,9 +109,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
             // Where the open picture sits in the chat's gallery, for the
             // swipe and arrow navigation.
             let gallery = app.open_chat_gallery();
-            let gallery_index = gallery
-                .iter()
-                .position(|path| path == preview.path());
+            let gallery_index = gallery.iter().position(|path| path == preview.path());
             let image = crate::ui::widgets::file_image(ui, preview.path());
             match image.load_for_size(ctx, canvas) {
                 Ok(egui::load::TexturePoll::Ready { texture }) => {

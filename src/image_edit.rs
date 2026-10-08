@@ -58,8 +58,8 @@ impl Editor {
     /// cannot be read or is not a decodable image.
     pub fn open(path: &std::path::Path) -> Result<Self, String> {
         let bytes = std::fs::read(path).map_err(|error| error.to_string())?;
-        let format = image::guess_format(&bytes)
-            .map_err(|error| format!("Unsupported image: {error}"))?;
+        let format =
+            image::guess_format(&bytes).map_err(|error| format!("Unsupported image: {error}"))?;
         if !matches!(
             format,
             image::ImageFormat::Png
@@ -181,8 +181,9 @@ impl Editor {
             .unwrap_or("photo");
         let name = format!("zapfast-edit-{stem}-{}.png", self.generation);
         let path = dir.join(name);
-        let image = image::RgbaImage::from_raw(self.width as u32, self.height as u32, self.rgba.clone())
-            .ok_or("The edited picture could not be rendered")?;
+        let image =
+            image::RgbaImage::from_raw(self.width as u32, self.height as u32, self.rgba.clone())
+                .ok_or("The edited picture could not be rendered")?;
         image
             .save_with_format(&path, image::ImageFormat::Png)
             .map_err(|error| error.to_string())?;
@@ -263,7 +264,10 @@ mod tests {
         editor.apply(EditOp::FlipVertical);
         editor.undo();
         editor.apply(EditOp::RotateLeft);
-        assert_eq!(editor.history, vec![EditOp::RotateRight, EditOp::RotateLeft]);
+        assert_eq!(
+            editor.history,
+            vec![EditOp::RotateRight, EditOp::RotateLeft]
+        );
         assert!(!editor.can_redo());
     }
 
