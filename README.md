@@ -44,6 +44,16 @@ This fork adds several features beyond the upstream v0.19.0 release:
 
 The base code is based on **ZapFast v0.19.0** (upstream release), with local features backported and integrated.
 
+### Downloads
+
+Installers are published on the [GitHub releases page](https://github.com/abhinavdatta/zapfast/releases):
+
+- **Windows** — `zapfast-vX.Y.Z-x86_64-pc-windows-msvc-setup.exe` (per-user installer, no administrator rights needed) plus a portable build with `zapfast-portable.txt`.
+- **Linux (Debian/Ubuntu)** — `zapfast-vX.Y.Z-amd64.deb`.
+- **Linux (portable)** — `zapfast-vX.Y.Z-x86_64-linux.tar.gz`.
+
+Every release carries `checksums.txt` with its Ed25519 signature (`checksums.txt.sig`); the in-app updater verifies both before downloading anything.
+
 ---
 
 ## What it does

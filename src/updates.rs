@@ -29,7 +29,8 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-const LATEST_RELEASE_URL: &str = "https://api.github.com/repos/crmne/zapfast/releases/latest";
+const LATEST_RELEASE_URL: &str =
+    "https://api.github.com/repos/abhinavdatta/zapfast/releases/latest";
 
 /// Update-check interval.
 pub const CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);

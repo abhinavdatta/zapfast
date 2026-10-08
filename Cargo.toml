@@ -1,6 +1,6 @@
 [package]
 name = "zapfast"
-version = "0.15.0"
+version = "0.19.1"
 edition = "2024"
 rust-version = "1.98"
 license = "MIT"
@@ -113,6 +113,8 @@ sys-locale = "0.3"
 [target.'cfg(target_os = "linux")'.dependencies]
 notify = "8.2"
 zbus-secret-service-keyring-store = { version = "1.0.1", features = ["rt-tokio-crypto-rust"] }
+# Reveals unopenable attachments in the file manager (FileManager1 ShowItems).
+zbus = { version = "5.19", default-features = false, features = ["blocking-api", "tokio"] }
 # Linux status-notifier tray item over D-Bus.
 ksni = { version = "0.3", features = ["blocking"] }
 # Reads the time locale's clock format.

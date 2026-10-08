@@ -31,7 +31,9 @@ impl Source {
     fn release(&self, version: &str) -> String {
         match self {
             Self::GitHub => {
-                format!("https://api.github.com/repos/crmne/zapfast/releases/tags/v{version}")
+                format!(
+                    "https://api.github.com/repos/abhinavdatta/zapfast/releases/tags/v{version}"
+                )
             }
             #[cfg(feature = "demo")]
             Self::Local(base) => format!("{base}/latest.json"),
@@ -228,7 +230,7 @@ fn download_with_key(
                 url.host_str() == Some("github.com")
                     && url.path()
                         == format!(
-                            "/crmne/zapfast/releases/download/v{}/{}",
+                            "/abhinavdatta/zapfast/releases/download/v{}/{}",
                             release.version, candidate.name
                         ),
                 "Update asset does not belong to this release"
