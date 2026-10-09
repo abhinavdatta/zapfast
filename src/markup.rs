@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use egui::text::LayoutJob;
 use egui::{Color32, FontId, Galley, Pos2, Stroke, TextFormat};
+use fastframe_text::snap_to_pixels;
 
 use crate::bidi;
 use crate::emoji;
@@ -118,7 +119,7 @@ pub fn layout(
             ..Default::default()
         };
         let before = characters;
-        let after = before + emoji::append(&mut job, &mut placements, &span.text, &format);
+        let after = before + emoji::append(ui, &mut job, &mut placements, &span.text, &format);
         if let Some(url) = span.link {
             links.push((before..after, url));
         }
@@ -170,14 +171,19 @@ pub fn paint_selectable(
     // original screen position; layout, hit targets, and link offsets stay put.
     let mut galley = (*text.galley).clone();
     let column = ui.clip_rect().x_range();
-    let offset = pos.x - column.min;
+    // Both ends on whole physical pixels: egui rounds where it paints the
+    // galley, not this shift, so a fractional offset left every glyph of a
+    // bubble between pixels and blurred it (0.21 px at 133%).
+    let ppp = ui.pixels_per_point();
+    let pos = Pos2::new(snap_to_pixels(pos.x, ppp), pos.y);
+    let offset = pos.x - snap_to_pixels(column.min, ppp);
     for row in &mut galley.rows {
         row.pos.x += offset;
     }
     galley.rect.min.x = 0.0;
     galley.rect.max.x = column.span();
     galley.mesh_bounds = galley.mesh_bounds.translate(egui::vec2(offset, 0.0));
-    let selection_pos = Pos2::new(column.min, pos.y);
+    let selection_pos = Pos2::new(snap_to_pixels(column.min, ppp), pos.y);
     egui::text_selection::LabelSelectionState::label_text_selection(
         ui,
         response,
@@ -451,13 +457,26 @@ fn mention_at<'m>(text: &str, at: usize, mentions: &'m [Mention]) -> Option<(usi
 /// Parses a web or email address at `at` and returns its end and target.
 fn link_at(text: &str, at: usize) -> Option<(usize, String)> {
     let rest = &text[at..];
+    // Brackets opened inside the address belong to it, as in
+    // `https://en.wikipedia.org/wiki/Rust_(programming_language)`; a closing
+    // one without its opener closes the text around it: `(see example.com)`.
+    let (mut parens, mut squares) = (0usize, 0usize);
     let token_end = rest
         .find(|c: char| {
-            c.is_whitespace()
-                || matches!(
-                    c,
-                    '<' | '>' | '"' | '\'' | '(' | ')' | '[' | ']' | '{' | '}'
-                )
+            let depth = match c {
+                '(' | ')' => &mut parens,
+                '[' | ']' => &mut squares,
+                _ => return c.is_whitespace() || matches!(c, '<' | '>' | '"' | '\'' | '{' | '}'),
+            };
+            if matches!(c, '(' | '[') {
+                *depth += 1;
+                false
+            } else if *depth > 0 {
+                *depth -= 1;
+                false
+            } else {
+                true
+            }
         })
         .unwrap_or(rest.len());
     let mut token = &rest[..token_end];
@@ -726,6 +745,42 @@ mod tests {
         );
         assert!(links("version 0.3.0 of main.rs and e.g. this").is_empty());
         assert!(links("abchttp://x").is_empty());
+    }
+
+    #[test]
+    fn addresses_keep_the_brackets_they_open() {
+        let links = |text: &str| -> Vec<String> {
+            parse(text, &[])
+                .into_iter()
+                .filter_map(|span| span.link)
+                .collect()
+        };
+        assert_eq!(
+            links("https://example.com/testing(testing)"),
+            vec!["https://example.com/testing(testing)"]
+        );
+        assert_eq!(
+            links("read https://en.wikipedia.org/wiki/Foo_(bar)."),
+            vec!["https://en.wikipedia.org/wiki/Foo_(bar)"]
+        );
+        assert_eq!(
+            links("(see https://en.wikipedia.org/wiki/Foo_(bar))"),
+            vec!["https://en.wikipedia.org/wiki/Foo_(bar)"]
+        );
+        assert_eq!(
+            links("(see https://example.com)"),
+            vec!["https://example.com"]
+        );
+        assert_eq!(
+            links("[https://example.com/a[1]]"),
+            vec!["https://example.com/a[1]"]
+        );
+        assert_eq!(
+            links("example.com/a(b)c, then"),
+            vec!["https://example.com/a(b)c"]
+        );
+        let spans = parse("(see https://example.com)", &[]);
+        assert_eq!(spans.last().map(|span| span.text.as_str()), Some(")"));
     }
 
     #[test]

@@ -79,12 +79,18 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     return ''.join(lines)
 
 
+def even(value):
+    return 2 * round(value / 2)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('recording', type=Path)
     parser.add_argument('events', type=Path)
     parser.add_argument('output', type=Path)
     parser.add_argument('--start', type=float, default=0, help='Seconds to trim before the tour starts')
+    parser.add_argument('--scale', type=float, default=1,
+                        help='Output pixels per logical point, e.g. 1.5 for 1920 wide from a 1280-point window')
     args = parser.parse_args()
     trace = json.loads(args.events.read_text())
     if not trace.get('complete'):
@@ -92,13 +98,17 @@ def main():
     if args.output.exists():
         parser.error('Output already exists; choose a new filename.')
     width, height = round(trace['width']), round(trace['height'])
+    # libass scales the captions from their logical size to the frame.
+    out_width, out_height = even(width * args.scale), even(height * args.scale)
+    band = even(64 * args.scale)
     with tempfile.TemporaryDirectory(prefix='zapfast-tour-') as tmp:
         ass = Path(tmp) / 'captions.ass'
         ass.write_text(captions(trace))
         subprocess.run([
             'ffmpeg', '-v', 'error', '-ss', str(args.start), '-i', str(args.recording),
             '-t', str(trace['duration']), '-map', '0:v:0', '-an', '-sn',
-            '-vf', f'scale={width}:{height},pad=iw:ih+64:0:0:color=0x0b1519,ass={ass}',
+            '-vf', f'scale={out_width}:{out_height}:flags=lanczos,'
+                   f'pad=iw:ih+{band}:0:0:color=0x0b1519,ass={ass}',
             '-r', '30', '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
             '-pix_fmt', 'yuv420p', '-map_metadata', '-1', '-movflags', '+faststart', str(args.output),
         ], check=True)

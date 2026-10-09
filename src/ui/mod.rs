@@ -1,33 +1,43 @@
 //! Window layout: panels, overlays, keyboard shortcuts.
 
+pub mod accounts;
 pub mod chats;
 pub mod conversation;
 pub mod dialogs;
 pub(crate) mod focus;
-pub mod image_editor;
 pub mod image_preview;
 pub mod keys;
+pub mod labels;
+pub mod lock;
 pub mod login;
-pub mod pages;
-pub mod pdf_preview;
+pub mod message_info;
+pub mod pane;
 pub mod picker;
 pub mod polls;
 pub mod settings;
 pub mod update;
+pub mod video_preview;
 pub mod widgets;
 
 use egui::{Align2, CornerRadius, Frame, Margin, Stroke, vec2};
 
 use crate::app::App;
 use crate::backend::LinkStatus;
-use crate::model::{Action, ChatFilter, Page, ToastKind};
+use crate::model::{Action, Page, SidebarDisplayMode, ToastKind};
 use crate::theme::{self, Icon};
-use focus::{Stop, TabStop};
 
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let ctx = ui.ctx().clone();
     let ctx = &ctx;
     track_keyboard_focus(ctx);
+    // Locked, nothing else is drawn: no chat list, no messages, no dialogs,
+    // no toasts, and no shortcut reaches them.
+    if app.app_lock.is_locked() {
+        titlebar_strip(app, ui);
+        lock::show(app, ui);
+        focus_ring(app, ctx);
+        return;
+    }
     keys::handle(app, ctx);
     let main_navigation = app.is_linked()
         && app.page == Page::Chats
@@ -37,8 +47,11 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         && app.reaction_target.is_none()
         && app.recording.is_none()
         && app.image_preview.is_none()
+        && !app.video_expanded
         && app.emoji_start.is_none()
         && app.mention_start.is_none()
+        // The day filter keeps egui's own order among its days.
+        && !app.chat_search_calendar
         && !egui::Popup::is_any_open(ctx);
     focus::begin(ctx, main_navigation);
     // The open chat's composer records its rect again below, if there is one.
@@ -46,6 +59,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     titlebar_strip(app, ui);
     if !app.is_linked() {
         login::show(app, ui);
+        accounts::corner(app, ctx);
         dialogs::show(app, ctx);
         update::show(app, ctx);
         toasts(app, ctx);
@@ -56,35 +70,27 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     if !macos {
         banner(app, ui);
     }
-    egui::Panel::left("rail")
-        .exact_size(rail_width())
-        .resizable(false)
-        .show_separator_line(false)
-        .frame(Frame::new().fill(app.palette.panel))
-        .show(ui, |ui| rail(app, ui));
-    // The status, channel and community pages carry a list of their own in the
-    // left column, like WhatsApp Web. Every other page keeps the chat list.
-    let own_list = matches!(app.page, Page::Status | Page::Channels | Page::Communities);
-    if app.sidebar_visible && !own_list {
-        chats::show(app, ui);
+    match app.sidebar_mode() {
+        SidebarDisplayMode::Expanded => chats::show(app, ui),
+        SidebarDisplayMode::CollapsedIconsOnly => chats::compact_show(app, ui),
     }
+    let search_overlay = pane::show(app, ui);
     egui::CentralPanel::default()
         .frame(central_frame(app))
         .show(ui, |ui| match app.page {
             Page::Settings => settings::show(app, ui),
             Page::Chats => conversation::show(app, ui),
-            Page::Status => pages::status::show(app, ui),
-            Page::Channels => pages::channels::show(app, ui),
-            Page::Communities => pages::communities::show(app, ui),
             Page::Wallpaper => settings::wallpaper_show(app, ui),
         });
+    if let Some(region) = search_overlay {
+        pane::show_overlay(app, ctx, region);
+    }
     focus::finish(ctx, main_navigation);
     update::show(app, ctx);
     picker::show(app, ctx);
     dialogs::show(app, ctx);
     image_preview::show(app, ctx);
-    image_editor::show(app, ctx);
-    pdf_preview::show(app, ctx);
+    video_preview::show(app, ctx);
     drop_target(app, ctx);
     toasts(app, ctx);
     focus_ring(app, ctx);
@@ -92,162 +98,10 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
 
 fn central_background(app: &App) -> egui::Color32 {
     if app.page == Page::Chats {
-        app.settings.wallpaper_color_for(app.palette.dark).color32()
+        app.settings.wallpaper_background(&app.palette)
     } else {
         app.palette.panel
     }
-}
-
-/// Rail width: a compact column of round tab buttons.
-fn rail_width() -> f32 {
-    58.0
-}
-
-/// The left navigation rail: Chats, Status, Channels, Communities, then
-/// Settings, mirroring the phone's bottom tabs.
-fn rail(app: &mut App, ui: &mut egui::Ui) {
-    let palette = app.palette;
-    ui.add_space(10.0);
-    ui.vertical(|ui| {
-        ui.spacing_mut().item_spacing.y = 4.0;
-        tab_button(
-            app,
-            ui,
-            Icon::MessageCircle,
-            Page::Chats,
-            "Chats",
-            app.unread_total(),
-            keys::Stop::RailChats,
-        );
-        let status_unseen = app
-            .status_entries()
-            .iter()
-            .filter(|entry| !entry.seen)
-            .count() as u32;
-        tab_button(
-            app,
-            ui,
-            Icon::CircleDashed,
-            Page::Status,
-            "Status",
-            status_unseen,
-            keys::Stop::RailStatus,
-        );
-        tab_button(
-            app,
-            ui,
-            Icon::Megaphone,
-            Page::Channels,
-            "Channels",
-            app.unread_chats(ChatFilter::Channels) as u32,
-            keys::Stop::RailChannels,
-        );
-        tab_button(
-            app,
-            ui,
-            Icon::Users,
-            Page::Communities,
-            "Communities",
-            0,
-            keys::Stop::RailCommunities,
-        );
-    });
-    ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-        ui.add_space(10.0);
-        let settings = tab_icon_button(
-            ui,
-            &palette,
-            Icon::Settings,
-            app.page == Page::Settings,
-            "Settings (Ctrl+,)",
-            0,
-            keys::Stop::Settings,
-        );
-        if settings.clicked() {
-            app.actions.push(Action::Open(Page::Settings));
-        }
-    });
-}
-
-fn tab_button(
-    app: &mut App,
-    ui: &mut egui::Ui,
-    icon: Icon,
-    page: Page,
-    label: &str,
-    badge: u32,
-    stop: keys::Stop,
-) {
-    let palette = app.palette;
-    let status = page == Page::Status;
-    let response = tab_icon_button(ui, &palette, icon, app.page == page, label, badge, stop);
-    if response.clicked() {
-        app.actions.push(Action::Open(page));
-        // Opening the Status page without playing a story reads the updates
-        // shown, like WhatsApp Web's preview list. Playing a story marks its
-        // updates seen when the story closes instead.
-        if status && app.status_story.is_none() {
-            app.actions.push(Action::MarkStatusSeen);
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn tab_icon_button(
-    ui: &mut egui::Ui,
-    palette: &crate::theme::Palette,
-    icon: Icon,
-    selected: bool,
-    label: &str,
-    badge: u32,
-    stop: keys::Stop,
-) -> egui::Response {
-    let size = 40.0;
-    let (rect, response) = ui.allocate_exact_size(
-        egui::vec2(rail_width() - 12.0, size + 8.0),
-        egui::Sense::click(),
-    );
-    response.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label)
-    });
-    if response.hovered() {
-        ui.painter().rect_filled(rect, 12.0, palette.surface_hover);
-    }
-    let icon_rect = egui::Rect::from_center_size(
-        egui::pos2(rect.center().x, rect.top() + size / 2.0),
-        egui::Vec2::splat(size),
-    );
-    if selected {
-        let pill = egui::Rect::from_center_size(
-            egui::pos2(icon_rect.center().x, icon_rect.bottom() - 3.0),
-            egui::vec2(icon_rect.width() - 12.0, 3.0),
-        );
-        ui.painter().rect_filled(pill, 2.0, palette.accent);
-    }
-    let color = if selected {
-        palette.accent
-    } else {
-        palette.secondary
-    };
-    theme::paint_icon(ui, icon, icon_rect, 22.0, color);
-    if badge > 0 {
-        let center = egui::pos2(icon_rect.right() - 2.0, icon_rect.top() + 4.0);
-        ui.painter().circle_filled(center, 8.0, palette.accent);
-        ui.painter().text(
-            center,
-            egui::Align2::CENTER_CENTER,
-            if badge > 99 {
-                "99+".to_owned()
-            } else {
-                badge.to_string()
-            },
-            theme::medium(10.0),
-            palette.on_accent,
-        );
-    }
-    // The rail is a narrow icon column, like WhatsApp Web: the label lives in
-    // the tooltip and the accessibility name, not in the pixels.
-    response.on_hover_text(label).tab_stop(stop)
 }
 
 fn central_frame(app: &App) -> Frame {
@@ -542,12 +396,7 @@ fn toasts(app: &mut App, ctx: &egui::Context) {
                     .stroke(Stroke::new(1.0, palette.outline))
                     .corner_radius(CornerRadius::same(theme::RADIUS))
                     .inner_margin(Margin::symmetric(14, 10))
-                    .shadow(egui::epaint::Shadow {
-                        offset: [0, 4],
-                        blur: 16,
-                        spread: 0,
-                        color: palette.shadow,
-                    })
+                    .shadow(palette.float_shadow())
                     .show(ui, |ui| {
                         // Size to the message up to a readable maximum.
                         let font = theme::medium(13.5);
@@ -625,14 +474,15 @@ fn toasts(app: &mut App, ctx: &egui::Context) {
 
 /// Draggable space for the macOS traffic-light title bar.
 fn titlebar_strip(app: &App, ui: &mut egui::Ui) {
-    if app.is_linked() {
+    let linked = app.is_linked() && !app.app_lock.is_locked();
+    if linked {
         return;
     }
     let inset = theme::titlebar_inset(ui.ctx());
     if inset == 0.0 {
         return;
     }
-    let fill = if app.is_linked() {
+    let fill = if linked {
         app.palette.panel
     } else {
         app.palette.window
@@ -658,44 +508,6 @@ pub fn titlebar_drag(ui: &mut egui::Ui, rect: egui::Rect) {
     if response.is_pointer_button_down_on() && ui.input(|input| input.pointer.primary_pressed()) {
         ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
     }
-}
-
-/// Header for pages without a conversation toolbar and with the sidebar hidden.
-pub fn standalone_header(app: &mut App, ui: &mut egui::Ui) {
-    if !theme::macos_chrome(ui.ctx()) || app.sidebar_visible {
-        return;
-    }
-    let palette = app.palette;
-    egui::Panel::top("standalone-header")
-        .exact_size(60.0)
-        .show_separator_line(false)
-        .frame(
-            Frame::new()
-                .fill(palette.panel)
-                .inner_margin(Margin::symmetric(14, 8)),
-        )
-        .show(ui, |ui| {
-            let mut drag = ui.max_rect();
-            drag.min.x += theme::traffic_light_inset(ui.ctx());
-            titlebar_drag(ui, drag);
-            ui.horizontal(|ui| {
-                ui.set_min_height(44.0);
-                ui.add_space((theme::traffic_light_inset(ui.ctx()) - 14.0).max(0.0));
-                if theme::icon_button(
-                    ui,
-                    Icon::PanelLeft,
-                    18.0,
-                    palette.secondary,
-                    palette.text,
-                    &keys::label("Show the chat list (Ctrl+B)"),
-                )
-                .tab_stop(Stop::Sidebar)
-                .clicked()
-                {
-                    app.actions.push(Action::ToggleSidebar);
-                }
-            });
-        });
 }
 
 #[cfg(test)]

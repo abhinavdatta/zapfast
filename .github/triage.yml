@@ -1,4 +1,4 @@
-duplicates: close
+extends: crmne/github-automation:triage/account.yml
 followups: selective
 
 report_bots:

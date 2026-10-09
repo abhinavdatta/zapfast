@@ -1029,7 +1029,7 @@ mod tests {
             .archive
             .insert_message(&edited_placeholder, Some(&raw))
             .unwrap();
-        worker.archive.set_meta("derived", "2").unwrap();
+        worker.archive.set_meta("derived", "3").unwrap();
         worker.backfill();
         worker.backfill_interactive();
         let recovered = worker

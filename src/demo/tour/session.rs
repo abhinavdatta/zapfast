@@ -67,18 +67,7 @@ pub fn respond(app: &mut App) {
                 quoting,
                 mentions,
             } => {
-                let quoted = quoting.and_then(|id| {
-                    app.conversations
-                        .get(&chat)?
-                        .message(&id)
-                        .map(|row| Quoted {
-                            id,
-                            sender: row.sender.clone(),
-                            sender_name: row.sender_name.clone(),
-                            summary: row.summary(),
-                            mentions: row.mentions.clone(),
-                        })
-                });
+                let quoted = quoting.and_then(|id| quote(app, &chat, id));
                 let mut row = outgoing(app, &chat, Content::text(text));
                 row.quoted = quoted;
                 row.mentions = mentions
@@ -110,18 +99,7 @@ pub fn respond(app: &mut App) {
                         animated: false,
                     },
                 );
-                row.quoted = quoting.and_then(|id| {
-                    app.conversations
-                        .get(&chat)?
-                        .message(&id)
-                        .map(|row| Quoted {
-                            id,
-                            sender: row.sender.clone(),
-                            sender_name: row.sender_name.clone(),
-                            summary: row.summary(),
-                            mentions: row.mentions.clone(),
-                        })
-                });
+                row.quoted = quoting.and_then(|id| quote(app, &chat, id));
                 append(app, row);
             }
             Command::SearchGifs { .. } => {
@@ -130,6 +108,74 @@ pub fn respond(app: &mut App) {
                 app.gif_error = None;
             }
             Command::RecentStickers => app.stickers_pending = false,
+            Command::SearchChatMessages {
+                chat,
+                query,
+                from,
+                until,
+            } => {
+                // Newest first, as the archive answers.
+                let hits: Vec<_> = app
+                    .conversations
+                    .get(&chat)
+                    .map(|conversation| {
+                        conversation
+                            .messages
+                            .iter()
+                            .rev()
+                            .filter(|row| query.is_empty() || row.text_matching(&query).is_some())
+                            .filter(|row| from.is_none_or(|from| row.timestamp >= from))
+                            .filter(|row| until.is_none_or(|until| row.timestamp < until))
+                            .cloned()
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if app.open_chat.as_deref() == Some(chat.as_str())
+                    && query == app.chat_search.trim()
+                {
+                    app.chat_search_hits = hits;
+                    app.chat_search_truncated = false;
+                    app.chat_search_pending = false;
+                    app.chat_search_selected = None;
+                }
+            }
+            Command::WatchReceipts(Some((chat, message))) => {
+                app.message_receipts = Some(crate::model::MessageReceipts {
+                    chat,
+                    message,
+                    recipients: super::super::sample_recipients(crate::util::now()),
+                });
+            }
+            Command::SendVoice {
+                chat,
+                samples,
+                quoting,
+            } => {
+                let path = app.dirs.media_cache_dir().join("tour-voice.ogg");
+                let Ok(bytes) = crate::voice::encode(&samples) else {
+                    continue;
+                };
+                if std::fs::write(&path, &bytes).is_err() {
+                    continue;
+                }
+                let mut media =
+                    super::super::media("audio/ogg; codecs=opus", bytes.len() as u64, None, None);
+                media.path = Some(path);
+                let seconds = (samples.len() as f64 / f64::from(crate::voice::RATE)).round();
+                let mut row = outgoing(
+                    app,
+                    &chat,
+                    Content::Audio {
+                        media,
+                        seconds: Some(seconds.max(1.0) as u32),
+                        voice_note: true,
+                        waveform: crate::voice::waveform(&samples),
+                    },
+                );
+                row.id = "tour-voice".into();
+                row.quoted = quoting.and_then(|id| quote(app, &chat, id));
+                append(app, row);
+            }
             Command::React {
                 chat,
                 message,
@@ -155,6 +201,17 @@ pub fn respond(app: &mut App) {
     }
 }
 
+fn quote(app: &App, chat: &str, id: String) -> Option<Quoted> {
+    let row = app.conversations.get(chat)?.message(&id)?;
+    Some(Quoted {
+        sender: row.sender.clone(),
+        sender_name: row.sender_name.clone(),
+        summary: row.summary(),
+        mentions: row.mentions.clone(),
+        id,
+    })
+}
+
 fn outgoing(app: &App, chat: &str, content: Content) -> Message {
     let count = app
         .conversations
@@ -177,6 +234,7 @@ fn append(app: &mut App, row: Message) {
             sender: row.sender.clone(),
             sender_name: row.sender_name.clone(),
             summary: row.summary(),
+            full: row.content.full_summary(),
             status: row.status,
         });
     }

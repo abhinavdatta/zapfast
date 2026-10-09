@@ -12,6 +12,10 @@ and its Chromium processes**. Both clients were linked to the same account.
 These are medians from four paired runs on one Linux desktop, measured on
 15 September 2026.
 
+ZapFast 0.16, with in-app video and image previews, animated stickers, and
+more of the interface, uses about **200 MB** idle on the same desktop. The
+table below is the measured 0.13.1 run.
+
 | Measurement | ZapFast 0.13.1 | WhatsApp Web + Chromium |
 | --- | ---: | ---: |
 | Idle RAM, PSS | **150.0 MB** / 143.1 MiB | **1,127.6 MB** / 1,075.4 MiB |

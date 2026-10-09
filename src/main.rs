@@ -12,10 +12,6 @@ use clap::Parser;
 struct Cli {
     #[command(subcommand)]
     command: Option<Control>,
-    #[arg(long, hide = true)]
-    update_receipt: Option<std::path::PathBuf>,
-    #[arg(long, hide = true)]
-    update_error: Option<String>,
     /// Log more from the WhatsApp library.
     #[arg(short, long)]
     verbose: bool,
@@ -43,6 +39,34 @@ struct Cli {
     #[cfg(feature = "demo")]
     #[arg(long, requires = "demo_tour", value_name = "PATH")]
     demo_tour_events: Option<std::path::PathBuf>,
+
+    /// Which tour to play: `launch` (41 seconds) or `whats-new` (what 0.16
+    /// added, 86 seconds).
+    #[cfg(feature = "demo")]
+    #[arg(
+        long,
+        requires = "demo_tour",
+        value_name = "NAME",
+        default_value = "launch",
+        value_parser = clap::builder::PossibleValuesParser::new(zapfast::demo::tour::Script::NAMES),
+    )]
+    demo_tour_script: String,
+
+    /// Play the tour at once on a virtual clock, save every frame as a PNG in
+    /// this directory, and quit when it ends.
+    #[cfg(feature = "demo")]
+    #[arg(
+        long,
+        requires = "demo_tour",
+        conflicts_with = "demo_tour_delay",
+        value_name = "DIR"
+    )]
+    demo_tour_frames: Option<std::path::PathBuf>,
+
+    /// Frames per second for `--demo-tour-frames` (default 30).
+    #[cfg(feature = "demo")]
+    #[arg(long, requires = "demo_tour_frames", value_name = "FPS", value_parser = clap::value_parser!(u32).range(1..=120))]
+    demo_fps: Option<u32>,
 
     /// Preview macOS content layout on another platform (demo only).
     #[cfg(feature = "demo")]
@@ -84,6 +108,10 @@ enum Control {
 
 /// Default log filter, used when `RUST_LOG` is unset.
 ///
+/// `fastframe_fonts` logs, once at startup, which installed face draws each
+/// script Inter lacks, which is what a report of odd Arabic or CJK text
+/// needs first.
+///
 /// `arboard` warns on every clipboard open when a Wayland compositor has no
 /// data-control protocol (GNOME, mutter) and it falls back to X11, which works
 /// there. Quiet that one target so it does not fill the log file, without
@@ -92,20 +120,42 @@ fn default_log_filter(verbose: bool) -> &'static str {
     if verbose {
         "info,zapfast=debug,whatsapp_rust=debug,wacore=debug"
     } else {
-        "warn,zapfast=info,arboard=error"
+        "warn,zapfast=info,fastframe_fonts=info,arboard=error"
     }
 }
 
 fn main() -> eframe::Result<()> {
-    let arguments: Vec<_> = std::env::args_os().collect();
-    if arguments.len() == 3 && arguments[1] == "--apply-update" {
-        return zapfast::updates::install::run_helper(std::path::Path::new(&arguments[2]))
-            .map_err(|error| eframe::Error::AppCreation(error.into()));
+    let result = run();
+    // A Windows release has no console, so an error that ends the start
+    // would otherwise leave the reader nothing to see (#349). `run` has
+    // already released the single-instance lock.
+    #[cfg(windows)]
+    if let Err(error) = &result {
+        startup_failure_dialog(error);
     }
-    let cli = Cli::parse();
+    result
+}
+
+fn run() -> eframe::Result<()> {
+    // First, before parsing the command line or touching any state: run the
+    // update helper when asked (`--apply-update <job>`, then exit), and take
+    // `--update-receipt` and `--update-error` off the command line.
+    let launch = fastframe_update::intercept(&zapfast::updates::CONFIG);
+    let cli = Cli::parse_from(&launch.arguments);
+    let discovered = paths::AppDirs::discover();
     if matches!(cli.command, Some(Control::ReloadThemes)) {
-        single_instance::send("reload-themes")
-            .map_err(|error| eframe::Error::AppCreation(error.into()))?;
+        if let Err(error) = single_instance::send(&discovered.runtime, "reload-themes") {
+            use std::io::ErrorKind;
+            if matches!(
+                error.kind(),
+                ErrorKind::NotFound | ErrorKind::ConnectionRefused
+            ) {
+                eprintln!("ZapFast is not running, so there are no themes to reload.");
+            } else {
+                eprintln!("Could not reach the running ZapFast: {error}");
+            }
+            std::process::exit(1);
+        }
         return Ok(());
     }
     let waker = backend::Waker::default();
@@ -119,7 +169,7 @@ fn main() -> eframe::Result<()> {
     } else {
         // A hidden start must not surface a copy that is already running.
         let verb = if cli.start_hidden { "ping" } else { "show" };
-        match single_instance::acquire(&waker, verb) {
+        match single_instance::acquire(&discovered.runtime, &waker, verb) {
             single_instance::Outcome::Only(guard) => Some(guard),
             single_instance::Outcome::Surfaced if cli.start_hidden => {
                 eprintln!("ZapFast is already running");
@@ -127,6 +177,10 @@ fn main() -> eframe::Result<()> {
             }
             single_instance::Outcome::Surfaced => {
                 eprintln!("ZapFast or FastsApp is already running; asked it to show its window");
+                return Ok(());
+            }
+            single_instance::Outcome::Unanswered => {
+                eprintln!("ZapFast is already running but did not answer");
                 return Ok(());
             }
         }
@@ -141,7 +195,7 @@ fn main() -> eframe::Result<()> {
             jiff::Timestamp::now().as_millisecond(),
         )))
     } else {
-        paths::AppDirs::discover()
+        discovered
     };
     if !demo {
         dirs.adopt_previous_names()
@@ -151,39 +205,26 @@ fn main() -> eframe::Result<()> {
     // directories have been created and secured successfully.
     dirs.ensure()
         .map_err(|error| eframe::Error::AppCreation(error.into()))?;
-    let mut logger =
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(default_filter));
+    let logging = fastframe_log::Logging::new("zapfast", env!("CARGO_PKG_VERSION"))
+        .filter(default_filter)
+        .panic_log(dirs.panic_log())
+        .redact(redact_protocol);
     // Write desktop-session logs to disk. Demo runs use stderr so they do not
     // replace a live session's log.
-    if !demo {
-        match std::fs::File::create(dirs.log_file()) {
-            Ok(file) => {
-                logger.target(env_logger::Target::Pipe(Box::new(Tee(file))));
-            }
-            Err(error) => eprintln!("not keeping a log file: {error}"),
-        }
+    let logging = if demo {
+        logging
+    } else {
+        logging.file(dirs.log_file())
+    };
+    logging
+        .init()
+        .map_err(|error| eframe::Error::AppCreation(error.into()))?;
+    // Moving a single-account setup into its account folder needs the
+    // keyring; when it cannot finish, the log says why.
+    if !demo && let Err(error) = dirs.adopt_single_account() {
+        log::error!("could not move the linked account into its folder: {error}");
+        return Err(eframe::Error::AppCreation(error.into()));
     }
-    logger.format(|buffer, record| {
-        use std::io::Write;
-        let message = record.args().to_string();
-        let message = if zapfast::diagnostics::is_protocol_target(record.target())
-            || zapfast::diagnostics::is_protocol_target(record.module_path().unwrap_or_default())
-        {
-            zapfast::diagnostics::protocol_summary(&message)
-        } else {
-            &message
-        };
-        writeln!(
-            buffer,
-            "[{} {} {}] {}",
-            buffer.timestamp(),
-            record.level(),
-            record.target(),
-            message
-        )
-    });
-    logger.init();
-    log_panics(dirs.panic_log());
     let settings = settings::Settings::load(&dirs.settings_file());
     let demo_persistence = demo.then(|| dirs.state.join("window.ron"));
 
@@ -192,11 +233,12 @@ fn main() -> eframe::Result<()> {
         app::App::headless(dirs, settings).0
     } else {
         app::App::new(&waker, dirs, settings, app::AppOptions { tray: true })
+            .map_err(|error| eframe::Error::AppCreation(error.into()))?
     };
     if cli.verbose {
         app.update_arguments.push("--verbose".into());
     }
-    if let Some(error) = cli.update_error {
+    if let Some(error) = launch.error {
         app.toast_error(error);
     }
     if let Some(guard) = &instance {
@@ -207,7 +249,7 @@ fn main() -> eframe::Result<()> {
         zapfast::demo::populate(&mut app);
         zapfast::demo::apply_flags(&mut app, cli.demo_page.as_deref());
         if cli.demo_tour {
-            zapfast::demo::tour::prepare(&mut app);
+            tour_script(&cli.demo_tour_script).prepare(&mut app);
         }
     }
     #[cfg(feature = "demo")]
@@ -221,157 +263,130 @@ fn main() -> eframe::Result<()> {
         let (x, y) = value.split_once(',')?;
         Some(egui::pos2(x.trim().parse().ok()?, y.trim().parse().ok()?))
     });
-    let slot = std::sync::Arc::new(std::sync::Mutex::new(Some(app)));
-
-    let mut update_receipt = cli.update_receipt;
-    // Without a tray there is no way back to a hidden window, so show it.
-    let mut start_hidden = cli.start_hidden
-        && !demo
-        && update_receipt.is_none()
-        && slot
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .as_ref()
-            .is_some_and(app::App::hides_to_tray);
-
-    // The link, archive, and tray outlive windows. Recreate a window when the
-    // tray, notification, or another launch requests one.
-    loop {
-        if std::mem::take(&mut start_hidden) {
-            slot.lock()
-                .unwrap_or_else(|p| p.into_inner())
-                .as_mut()
-                .expect("application state present")
-                .hide_intent = true;
-        } else {
-            let creator_slot = std::sync::Arc::clone(&slot);
-            let creator_waker = waker.clone();
-            let creator_receipt = update_receipt.take();
+    let mut update_receipt = launch.receipt;
+    // The link, archive, and tray outlive windows. The shell recreates a
+    // window when the tray, a notification, or another launch requests one;
+    // without a tray a hidden start shows the window (App::start_hidden).
+    let start_hidden = cli.start_hidden && !demo && update_receipt.is_none();
+    fastframe_shell::Shell::new(app, &waker)
+        .start_hidden(start_hidden)
+        .idle(fastframe_tray::idle)
+        .run(|lease| {
+            let receipt = update_receipt.take();
             #[cfg(feature = "demo")]
-            let creator_shot = shot.clone();
+            let shot = shot.clone();
             #[cfg(feature = "demo")]
-            let creator_tour_events = cli.demo_tour_events.clone();
+            let tour = cli.demo_tour.then(|| {
+                zapfast::demo::tour::Tour::scripted(
+                    tour_script(&cli.demo_tour_script),
+                    cli.demo_tour_delay.map(std::time::Duration::from_millis),
+                    cli.demo_tour_events.clone(),
+                    cli.demo_tour_frames
+                        .clone()
+                        .map(|dir| zapfast::demo::tour::Capture {
+                            dir,
+                            fps: cli.demo_fps.unwrap_or(30),
+                        }),
+                )
+            });
             eframe::run_native(
                 "ZapFast",
                 native_options(demo_persistence.clone()),
                 Box::new(move |cc| {
-                    creator_waker.attach(&cc.egui_ctx);
-                    let mut app = creator_slot
-                        .lock()
-                        .unwrap_or_else(|p| p.into_inner())
-                        .take()
-                        .expect("application state present");
+                    let mut app = lease.take(&cc.egui_ctx);
                     app.attach(&cc.egui_ctx);
                     #[cfg(feature = "demo")]
                     if cli.demo_macos {
                         zapfast::theme::preview_macos(&cc.egui_ctx);
                     }
                     Ok(Box::new(Shell {
-                        app: Some(app),
-                        update_receipt: creator_receipt,
-                        slot: std::sync::Arc::clone(&creator_slot),
+                        app,
+                        window_recovery_checked: false,
+                        update_receipt: receipt,
+                        #[cfg(target_os = "windows")]
+                        taskbar: Default::default(),
                         #[cfg(feature = "demo")]
-                        shot: creator_shot,
+                        shot,
                         #[cfg(feature = "demo")]
                         hover: demo_hover,
                         #[cfg(feature = "demo")]
-                        tour: cli.demo_tour.then(|| {
-                            zapfast::demo::tour::Tour::new(
-                                cli.demo_tour_delay.map(std::time::Duration::from_millis),
-                                creator_tour_events,
-                            )
-                        }),
+                        tour,
                     }))
                 }),
-            )?;
-            waker.detach();
-        }
-
-        let hide = {
-            let guard = slot.lock().unwrap_or_else(|p| p.into_inner());
-            let app = guard.as_ref().expect("application state present");
-            !app.quit_requested && app.hide_intent
-        };
-        if !hide {
-            break;
-        }
-
-        // Keep updating link, archive, and tray while no window exists.
-        let headless = egui::Context::default();
-        slot.lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .as_mut()
-            .expect("application state present")
-            .window_gone();
-        loop {
-            {
-                let mut guard = slot.lock().unwrap_or_else(|p| p.into_inner());
-                let app = guard.as_mut().expect("application state present");
-                app.background_frame(&headless);
-                if app.quit_requested || app.wants_show {
-                    break;
-                }
-            }
-            zapfast::tray::idle(std::time::Duration::from_millis(150));
-        }
-        let quit = slot
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .as_ref()
-            .expect("application state present")
-            .quit_requested;
-        if quit {
-            break;
-        }
-    }
-
-    if let Some(mut app) = slot.lock().unwrap_or_else(|p| p.into_inner()).take() {
-        app.shutdown();
-    }
+            )
+        })?;
     drop(instance);
     Ok(())
 }
 
-/// Logger that writes to stderr and the current-run log file.
-struct Tee(std::fs::File);
+/// Whether eframe stopped because the graphics driver gave it no usable
+/// OpenGL: no pixel format, no context of any version it asks for, or a
+/// context the renderer cannot use.
+#[cfg(windows)]
+fn is_graphics_failure(error: &eframe::Error) -> bool {
+    matches!(
+        error,
+        eframe::Error::Glutin(_) | eframe::Error::NoGlutinConfigs(..) | eframe::Error::OpenGL(_)
+    )
+}
 
-impl std::io::Write for Tee {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let _ = std::io::stderr().write_all(buf);
-        self.0.write_all(buf)?;
-        Ok(buf.len())
-    }
+/// The text of the dialog shown when ZapFast cannot start, kept apart from
+/// the dialog so it is tested on every platform.
+#[cfg(any(windows, test))]
+fn startup_failure_text(graphics: bool, details: &str, log: &std::path::Path) -> String {
+    let summary = if graphics {
+        "ZapFast could not start because the graphics driver does not offer \
+         OpenGL 2.1 or newer, which ZapFast needs to draw its window.\n\n\
+         Install the current driver from the maker of the graphics chip \
+         (Intel, AMD or NVIDIA). The Microsoft Basic Display Adapter, some \
+         virtual machines and some remote desktop sessions offer no usable \
+         OpenGL."
+    } else {
+        "ZapFast could not start."
+    };
+    format!(
+        "{summary}\n\nDetails: {details}\n\nThe log may say more: {}",
+        log.display()
+    )
+}
 
-    fn flush(&mut self) -> std::io::Result<()> {
-        let _ = std::io::stderr().flush();
-        self.0.flush()
+/// Explains a failed start in a message box, the only thing a release
+/// without a console can show before its window exists.
+#[cfg(windows)]
+fn startup_failure_dialog(error: &eframe::Error) {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        MB_ICONERROR, MB_OK, MB_SETFOREGROUND, MessageBoxW,
+    };
+    use windows::core::PCWSTR;
+
+    let text = startup_failure_text(
+        is_graphics_failure(error),
+        &error.to_string(),
+        &paths::AppDirs::discover().log_file(),
+    );
+    let wide = |text: &str| text.encode_utf16().chain([0]).collect::<Vec<u16>>();
+    let (text, caption) = (wide(&text), wide("ZapFast"));
+    // SAFETY: both strings are NUL-terminated and outlive the call.
+    unsafe {
+        MessageBoxW(
+            None,
+            PCWSTR(text.as_ptr()),
+            PCWSTR(caption.as_ptr()),
+            MB_OK | MB_ICONERROR | MB_SETFOREGROUND,
+        );
     }
 }
 
-/// Writes panics to `path` before process exit.
-fn log_panics(path: std::path::PathBuf) {
-    std::panic::set_hook(Box::new(move |info| {
-        let thread = std::thread::current();
-        let entry = format!(
-            "{} zapfast {} on thread {:?}, panic at {} (payload omitted)\n",
-            jiff::Timestamp::now(),
-            env!("CARGO_PKG_VERSION"),
-            thread.name().unwrap_or("unnamed"),
-            info.location().map_or_else(
-                || "unknown location".to_owned(),
-                |location| location.to_string()
-            ),
-        );
-        eprint!("{entry}");
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path);
-        if let Ok(mut file) = file {
-            use std::io::Write;
-            let _ = file.write_all(entry.as_bytes());
-        }
-    }));
+/// Summarises the WhatsApp library's lines, which can quote protocol
+/// payloads, into fixed categories.
+fn redact_protocol(
+    record: &log::Record<'_>,
+    message: &str,
+) -> Option<std::borrow::Cow<'static, str>> {
+    use zapfast::diagnostics::{is_protocol_target, protocol_summary};
+    (is_protocol_target(record.target())
+        || is_protocol_target(record.module_path().unwrap_or_default()))
+    .then(|| protocol_summary(message))
 }
 
 /// Parses `--demo-size WxH`.
@@ -381,6 +396,12 @@ fn demo_size_arg() -> Option<[f32; 2]> {
         .nth(1)?;
     let (w, h) = value.split_once('x')?;
     Some([w.parse::<f32>().ok()?, h.parse::<f32>().ok()?])
+}
+
+/// The tour `--demo-tour-script` names; clap has already checked the name.
+#[cfg(feature = "demo")]
+fn tour_script(name: &str) -> zapfast::demo::tour::Script {
+    zapfast::demo::tour::Script::from_name(name).unwrap_or_default()
 }
 
 fn native_options(demo_persistence: Option<std::path::PathBuf>) -> eframe::NativeOptions {
@@ -408,33 +429,26 @@ fn native_options(demo_persistence: Option<std::path::PathBuf>) -> eframe::Nativ
         persistence_path: demo_persistence,
         // Do not restore window size during fixed-size screenshot runs.
         persist_window: !demo,
-        // Hidden Wayland windows stop receiving frame callbacks, so vsync is
-        // only on where the patched winit can report them as occluded.
-        glow_options: eframe::egui_glow::GlowConfiguration {
-            vsync: zapfast::vsync::enabled(),
-            ..Default::default()
-        },
         ..Default::default()
     }
 }
 
-/// eframe adapter that returns the long-lived [`app::App`] when a window closes.
+/// eframe adapter holding the long-lived [`app::App`] for one window; it goes
+/// back to the shell when the window closes.
 struct Shell {
-    update_receipt: Option<std::path::PathBuf>,
-    app: Option<app::App>,
-    slot: std::sync::Arc<std::sync::Mutex<Option<app::App>>>,
+    /// Whether this window's first frame checked that a monitor shows it.
+    window_recovery_checked: bool,
+    update_receipt: Option<fastframe_update::Receipt>,
+    app: fastframe_shell::Held<app::App>,
+    /// This window's unread overlay on its taskbar button.
+    #[cfg(target_os = "windows")]
+    taskbar: zapfast::notify::Taskbar,
     #[cfg(feature = "demo")]
     shot: Option<Shot>,
     #[cfg(feature = "demo")]
     tour: Option<zapfast::demo::tour::Tour>,
     #[cfg(feature = "demo")]
     hover: Option<egui::Pos2>,
-}
-
-impl Drop for Shell {
-    fn drop(&mut self) {
-        *self.slot.lock().unwrap_or_else(|p| p.into_inner()) = self.app.take();
-    }
 }
 
 /// Pending screenshot request.
@@ -487,10 +501,15 @@ impl Shell {
 impl eframe::App for Shell {
     #[cfg(feature = "demo")]
     fn raw_input_hook(&mut self, ctx: &egui::Context, input: &mut egui::RawInput) {
-        if let (Some(tour), Some(app)) = (&mut self.tour, &mut self.app) {
-            tour.input(app, ctx, input);
+        if let Some(tour) = &mut self.tour {
+            tour.input(&mut self.app, ctx, input);
         }
-        if let Some(pos) = self.hover {
+        // Moves the pointer only while it is elsewhere: each move restarts
+        // egui's tooltip delay, so a fake pointer that kept moving in place
+        // would never show one.
+        if let Some(pos) = self.hover
+            && ctx.input(|input| input.pointer.latest_pos()) != Some(pos)
+        {
             input.events.push(egui::Event::PointerMoved(pos));
         }
     }
@@ -501,16 +520,30 @@ impl eframe::App for Shell {
         false
     }
 
-    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if let Some(app) = self.app.as_mut() {
-            #[cfg(feature = "demo")]
-            if let Some(tour) = self.tour.as_mut() {
-                tour.drive(app, ctx);
-            }
-            app.background_frame(ctx);
-            #[cfg(target_os = "macos")]
-            zapfast::macos::update_window(_frame, ctx, app.is_linked());
+    fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if !std::mem::replace(&mut self.window_recovery_checked, true) {
+            fastframe_shell::window::recover_offscreen(ctx, frame);
         }
+        let app = &mut *self.app;
+        #[cfg(feature = "demo")]
+        if let Some(tour) = self.tour.as_mut() {
+            tour.drive(app, ctx);
+        }
+        app.background_frame(ctx);
+        #[cfg(target_os = "windows")]
+        if let (Some(window), Some(count)) = (frame.winit_window(), app.taskbar_badge_count())
+            && let Some(at) = self.taskbar.show(window, count, app.locale)
+        {
+            ctx.request_repaint_after(at.saturating_duration_since(std::time::Instant::now()));
+        }
+        // The chat header is 60 points and zooms; the linking screen keeps
+        // AppKit's own 28-point strip.
+        let title_bar = if app.is_linked() && !app.app_lock.is_locked() {
+            zapfast::theme::TOP_BAR_HEIGHT
+        } else {
+            28.0 / ctx.zoom_factor()
+        };
+        fastframe_macos::align_traffic_lights(frame, ctx, title_bar);
         #[cfg(feature = "demo")]
         {
             // Keep requesting the configured screenshot size until it is applied.
@@ -527,34 +560,37 @@ impl eframe::App for Shell {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        if let Some(app) = self.app.as_mut() {
-            app.frame_ui(ui);
-            let startup = app.backend.take_startup();
-            if let Some(receipt) = self.update_receipt.take() {
-                std::thread::spawn(move || {
-                    if let Err(error) = zapfast::updates::install::acknowledge(&receipt) {
-                        log::warn!("could not acknowledge the update: {error:#}");
-                        return;
-                    }
-                    if let Some(startup) = startup {
-                        let _ = startup.send(());
-                    }
-                });
-            } else if let Some(startup) = startup {
+        let app = &mut *self.app;
+        app.frame_ui(ui);
+        let startups: Vec<_> = app
+            .accounts
+            .iter_mut()
+            .filter_map(|account| account.backend.take_startup())
+            .collect();
+        if let Some(receipt) = self.update_receipt.take() {
+            std::thread::spawn(move || {
+                if let Err(error) = receipt.acknowledge() {
+                    log::warn!("could not acknowledge the update: {error:#}");
+                    return;
+                }
+                for startup in startups {
+                    let _ = startup.send(());
+                }
+            });
+        } else {
+            for startup in startups {
                 let _ = startup.send(());
             }
-            #[cfg(feature = "demo")]
-            if let Some(tour) = self.tour.as_mut() {
-                tour.observe(app, ui.ctx());
-            }
+        }
+        #[cfg(feature = "demo")]
+        if let Some(tour) = self.tour.as_mut() {
+            tour.observe(app, ui.ctx());
         }
     }
 
     /// Saves essential state before the window closes.
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        if let Some(app) = self.app.as_mut() {
-            app.save_state();
-        }
+        self.app.save_state();
     }
 }
 
@@ -597,6 +633,82 @@ mod tests {
         assert!(Cli::try_parse_from(["zapfast", "--demo-tour-delay", "5000"]).is_err());
         assert!(Cli::try_parse_from(["zapfast", "--demo-tour", "--demo-page", "login",]).is_err());
     }
+
+    #[test]
+    fn tour_cli_picks_a_script_and_a_frame_capture() {
+        let cli = Cli::try_parse_from(["zapfast", "--demo-tour"]).unwrap();
+        assert_eq!(
+            tour_script(&cli.demo_tour_script),
+            zapfast::demo::tour::Script::Launch
+        );
+        let cli = Cli::try_parse_from([
+            "zapfast",
+            "--demo-tour",
+            "--demo-tour-script",
+            "whats-new",
+            "--demo-tour-frames",
+            "frames",
+            "--demo-fps",
+            "60",
+        ])
+        .unwrap();
+        assert_eq!(
+            tour_script(&cli.demo_tour_script),
+            zapfast::demo::tour::Script::WhatsNew
+        );
+        assert_eq!(
+            cli.demo_tour_frames.as_deref(),
+            Some(std::path::Path::new("frames"))
+        );
+        assert_eq!(cli.demo_fps, Some(60));
+        assert!(
+            Cli::try_parse_from(["zapfast", "--demo-tour", "--demo-tour-script", "other"]).is_err()
+        );
+        assert!(Cli::try_parse_from(["zapfast", "--demo-tour-script", "whats-new"]).is_err());
+        assert!(Cli::try_parse_from(["zapfast", "--demo-tour", "--demo-fps", "30"]).is_err());
+        assert!(
+            Cli::try_parse_from([
+                "zapfast",
+                "--demo-tour",
+                "--demo-tour-frames",
+                "frames",
+                "--demo-tour-delay",
+                "5000",
+            ])
+            .is_err()
+        );
+    }
+}
+
+#[cfg(test)]
+mod startup_failure_tests {
+    use super::*;
+
+    #[test]
+    fn a_graphics_failure_names_the_driver_requirement_and_the_details() {
+        let log = std::path::Path::new("C:/zapfast/zapfast.log");
+        let text = startup_failure_text(
+            true,
+            "glutin error: extension to create ES context with wgl is not present",
+            log,
+        );
+        assert!(text.contains("OpenGL 2.1 or newer"));
+        assert!(text.contains("graphics driver"));
+        assert!(text.contains("ES context with wgl is not present"));
+        assert!(text.contains(&log.display().to_string()));
+    }
+
+    #[test]
+    fn any_other_failure_shows_its_details_without_blaming_the_driver() {
+        let text = startup_failure_text(
+            false,
+            "The directory is not writable",
+            std::path::Path::new("zapfast.log"),
+        );
+        assert!(text.starts_with("ZapFast could not start."));
+        assert!(!text.contains("OpenGL"));
+        assert!(text.contains("The directory is not writable"));
+    }
 }
 
 #[cfg(test)]
@@ -634,6 +746,22 @@ mod log_filter_tests {
             filter,
             log::Level::Warn,
             "zapfast::backend::worker"
+        ));
+    }
+
+    /// Every log names the face chosen for each fallback script, without
+    /// asking a reporter to start with `--verbose`.
+    #[test]
+    fn the_default_log_records_the_fallback_fonts() {
+        assert!(matches(
+            default_log_filter(false),
+            log::Level::Info,
+            "fastframe_fonts::system"
+        ));
+        assert!(!matches(
+            default_log_filter(false),
+            log::Level::Debug,
+            "fastframe_fonts::system"
         ));
     }
 

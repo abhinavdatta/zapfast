@@ -1,11 +1,11 @@
-//! Main-thread AppKit chrome and application menus. The menu outlives windows,
-//! just like the link and tray; reopening replaces only its repaint callback.
+//! Main-thread AppKit application menus. The menu outlives windows, just like
+//! the link and tray; reopening replaces only its repaint callback. The
+//! traffic lights are placed by fastframe-macos.
 
 use std::cell::RefCell;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use objc2_app_kit::{NSApplication, NSText, NSView, NSWindowButton};
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use objc2_app_kit::{NSApplication, NSText};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem as Native, Submenu};
 
 use crate::model::{Action, Dialog, Page};
@@ -114,6 +114,10 @@ pub fn attach(ctx: &egui::Context) {
     }
     *REPAINT.lock().unwrap_or_else(|p| p.into_inner()) = Some(ctx.clone());
     MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+        // The tray's menu shares muda's one handler; its ids are its own.
+        if fastframe_tray::claim_menu_event(&event.id.0) {
+            return;
+        }
         if native_edit(&event.id.0) {
             return;
         }
@@ -213,7 +217,7 @@ fn edit_event(id: &str) -> Option<egui::Event> {
     })
 }
 
-fn action(id: &str, hidden: bool) -> Option<Action> {
+fn action(id: &str) -> Option<Action> {
     Some(match id {
         "about" => Action::ShowDialog(Dialog::About),
         "settings" => Action::Open(Page::Settings),
@@ -228,14 +232,6 @@ fn action(id: &str, hidden: bool) -> Option<Action> {
         "shortcuts" => Action::ShowDialog(Dialog::Shortcuts),
         "help" => Action::OpenUrl("https://zapfast.rocks/using-zapfast/".into()),
         "show-window" => Action::ShowWindow,
-        // These two ids are shared with the native tray menu.
-        "show" => {
-            if hidden {
-                Action::ShowWindow
-            } else {
-                Action::HideWindow
-            }
-        }
         _ => return None,
     })
 }
@@ -250,7 +246,7 @@ pub fn drain(hidden: bool) -> Vec<Action> {
     let events = std::mem::take(&mut *EVENTS.lock().unwrap_or_else(|p| p.into_inner()));
     let mut actions = Vec::new();
     for id in events {
-        if let Some(action) = action(&id, hidden) {
+        if let Some(action) = action(&id) {
             if hidden
                 && matches!(
                     action,
@@ -263,69 +259,6 @@ pub fn drain(hidden: bool) -> Vec<Action> {
         }
     }
     actions
-}
-
-/// Reapply after resizing, zooming, or recreating the native window. AppKit
-/// restores standard button positions during its own window layout passes.
-pub fn update_window(frame: &eframe::Frame, ctx: &egui::Context, linked: bool) {
-    if ctx.input(|input| input.viewport().fullscreen.unwrap_or(false)) {
-        return;
-    }
-    let Ok(handle) = frame.window_handle() else {
-        return;
-    };
-    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
-        return;
-    };
-    // SAFETY: eframe supplies a live NSView and this runs on its main thread.
-    let view = unsafe { &*handle.ns_view.as_ptr().cast::<NSView>() };
-    let Some(window) = view.window() else { return };
-    let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) else {
-        return;
-    };
-    // SAFETY: standard buttons and their retained parent views belong to this
-    // live window; AppKit is accessed only from eframe's main-thread callback.
-    let Some(parent) = (unsafe { close.superview() }) else {
-        return;
-    };
-    let Some(container) = (unsafe { parent.superview() }) else {
-        return;
-    };
-    let height = if linked {
-        60.0 * f64::from(ctx.zoom_factor())
-    } else {
-        28.0
-    };
-    let mut rect = container.frame();
-    rect.size.height = height;
-    rect.origin.y = window.frame().size.height - height;
-    if container.frame() != rect {
-        container.setFrame(rect);
-    }
-    let mut parent_rect = parent.frame();
-    parent_rect.origin.y = 0.0;
-    parent_rect.size.height = height;
-    if parent.frame() != parent_rect {
-        parent.setFrame(parent_rect);
-    }
-    for (index, kind) in [
-        NSWindowButton::CloseButton,
-        NSWindowButton::MiniaturizeButton,
-        NSWindowButton::ZoomButton,
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        if let Some(button) = window.standardWindowButton(kind) {
-            let mut origin = button.frame().origin;
-            origin.x = 16.0 + index as f64 * 20.0;
-            // Convert from the content top to the button parent's coordinates.
-            origin.y = parent.frame().size.height - (height + button.frame().size.height) / 2.0;
-            if button.frame().origin != origin {
-                button.setFrameOrigin(origin);
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -366,9 +299,9 @@ mod tests {
 
     #[test]
     fn menu_uses_the_apps_close_quit_and_edit_paths() {
-        assert!(matches!(action("close", false), Some(Action::CloseWindow)));
-        assert!(matches!(action("quit", true), Some(Action::Quit)));
-        assert!(matches!(action("show", true), Some(Action::ShowWindow)));
+        assert!(matches!(action("close"), Some(Action::CloseWindow)));
+        assert!(matches!(action("quit"), Some(Action::Quit)));
+        assert!(matches!(action("show-window"), Some(Action::ShowWindow)));
         assert!(matches!(edit_event("copy"), Some(egui::Event::Copy)));
         assert!(
             matches!(edit_event("redo"), Some(egui::Event::Key { key: egui::Key::Z, modifiers, .. }) if modifiers.command && modifiers.shift)

@@ -39,14 +39,6 @@ pub fn can_preview_image(path: &Path) -> bool {
     )
 }
 
-/// Documents shown by ZapFast's built-in PDF viewer.
-pub fn can_preview_pdf(path: &Path) -> bool {
-    let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
-        return false;
-    };
-    extension.eq_ignore_ascii_case("pdf")
-}
-
 /// The code of a WhatsApp group invite link such as
 /// `https://chat.whatsapp.com/AbCd123`, which ZapFast opens itself.
 pub fn group_invite_code(value: &str) -> Option<String> {
@@ -71,11 +63,9 @@ pub fn group_invite_code(value: &str) -> Option<String> {
     .then(|| code.to_owned())
 }
 
-/// Only common document, media and archive formats go to their desktop
-/// application. Unknown files, scripts, installers and application bundles can
-/// be revealed in their folder instead. Sender-provided MIME types cannot
-/// grant permission. Archives open in the desktop's archive manager, which
-/// never runs what is inside.
+/// Only common document/media formats go to their desktop application.
+/// Unknown files, scripts, installers and application bundles can be revealed
+/// in their folder instead. Sender-provided MIME types cannot grant permission.
 pub fn can_open_attachment(path: &Path) -> bool {
     let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
         return false;
@@ -113,26 +103,10 @@ pub fn can_open_attachment(path: &Path) -> bool {
             | "docx"
             | "xlsx"
             | "pptx"
-            | "doc"
-            | "xls"
-            | "ppt"
             | "odt"
             | "ods"
             | "odp"
             | "rtf"
-            | "json"
-            | "xml"
-            | "md"
-            | "eml"
-            | "vcf"
-            | "zip"
-            | "rar"
-            | "7z"
-            | "tar"
-            | "gz"
-            | "tgz"
-            | "bz2"
-            | "xz"
     )
 }
 
@@ -219,19 +193,7 @@ mod tests {
 
     #[test]
     fn only_recognized_document_and_media_extensions_can_launch() {
-        for name in [
-            "photo.JPG",
-            "document.pdf",
-            "voice.ogg",
-            "sheet.xlsx",
-            "backup.zip",
-            "backup.rar",
-            "backup.7z",
-            "archive.tar.gz",
-            "notes.doc",
-            "data.json",
-            "contact.vcf",
-        ] {
+        for name in ["photo.JPG", "document.pdf", "voice.ogg", "sheet.xlsx"] {
             assert!(can_open_attachment(Path::new(name)), "{name}");
         }
         for name in [

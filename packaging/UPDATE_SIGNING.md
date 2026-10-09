@@ -2,7 +2,10 @@
 
 ZapFast verifies `checksums.txt.sig`, a raw 64-byte Ed25519 signature over the
 exact bytes of `checksums.txt`, before parsing checksums or downloading a package.
-The trusted 32-byte public key is embedded from `assets/update-public-key.hex`.
+The trusted 32-byte public key is embedded from `assets/update-public-key.hex`
+as the `publisher_key` of ZapFast's configuration for
+[fastframe-update](https://github.com/crmne/fastframe/tree/main/crates/fastframe-update),
+which performs the verification.
 Missing, truncated, or invalid signatures fail closed. There is no unsigned
 fallback, runtime key override, or key fetched from the release being verified.
 Exact filenames bind each signed checksum to its version and platform.

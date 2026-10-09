@@ -43,19 +43,22 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl
-      - uses: Swatinem/rust-cache@v2
+      # After the toolchain, so the cache key follows the pinned rustc. The
+      # key carries no job name, so each job sets its own generation. Saves
+      # only on pushes to main; pull requests restore.
+      - uses: jdx/mr-boxington-action@v1
         with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-generation: quality-v1
       - name: Formatting
         run: cargo fmt --all --check
       - name: Clippy (default features)
-        run: cargo clippy --locked --all-targets -- -D warnings
+        run: mbx clippy --locked --all-targets -- -D warnings
       - name: Clippy (all features)
-        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+        run: mbx clippy --locked --all-targets --all-features -- -D warnings
       - name: Rustdoc
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc --locked --all-features --no-deps
+        run: mbx doc --locked --all-features --no-deps
 
   test:
     name: test (${{ matrix.os }})
@@ -73,17 +76,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl
-      - uses: Swatinem/rust-cache@v2
+      - uses: jdx/mr-boxington-action@v1
         with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-generation: test-v1
       # The demo feature carries the headless layout test of every screen.
       - name: Tests (default features)
-        run: cargo test --locked --all-targets
+        run: mbx test --locked --all-targets
       - name: Tests (all features)
-        run: cargo test --locked --all-targets --all-features
+        run: mbx test --locked --all-targets --all-features
       - name: Build macOS demo
         if: runner.os == 'macOS'
-        run: cargo build --locked --features demo
+        run: mbx build --locked --features demo
       - name: macOS window smoke test
         if: runner.os == 'macOS'
         timeout-minutes: 3
@@ -111,11 +114,10 @@ jobs:
         with:
           targets: aarch64-pc-windows-msvc
       - run: rustup target add aarch64-pc-windows-msvc
-      - uses: Swatinem/rust-cache@v2
+      - uses: jdx/mr-boxington-action@v1
         with:
-          key: windows-arm64
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo check --locked --all-targets --all-features --target aarch64-pc-windows-msvc
+          cache-generation: windows-arm64-v1
+      - run: mbx check --locked --all-targets --all-features --target aarch64-pc-windows-msvc
 
   nix:
     name: Nix package (${{ matrix.system }})

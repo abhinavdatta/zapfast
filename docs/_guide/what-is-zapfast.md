@@ -12,11 +12,12 @@ WhatsApp has no official Linux app. ZapFast is a native WhatsApp client
 written in Rust with [egui](https://github.com/emilk/egui). It connects through
 [whatsapp-rust](https://github.com/oxidezap/whatsapp-rust). ZapFast is a
 single binary with no browser engine and uses a layout similar to WhatsApp Web.
-In our Linux test, it opened in under a second and used about 150 MB of idle
+In our Linux test, it opens in under a second and uses about 200 MB of idle
 RAM, compared with 1.13 GB for WhatsApp Web and its Chromium processes.
 [See the measurements](/benchmarks/).
 
-![ZapFast showing a conversation with an attachment, voice messages, reactions, a quoted reply, and a link preview](/screenshot.png)
+<img class="VPImage dark" src="{{ '/screenshot.png' | relative_url }}" alt="ZapFast showing a conversation with an attachment, voice messages, reactions, a quoted reply, and a link preview" width="1800" height="1360">
+<img class="VPImage light" src="{{ '/screenshot-light.png' | relative_url }}" alt="ZapFast showing a conversation with an attachment, voice messages, reactions, a quoted reply, and a link preview" width="1800" height="1360">
 
 ## What it does
 
@@ -35,8 +36,10 @@ RAM, compared with 1.13 GB for WhatsApp Web and its Chromium processes.
 - **Uses consistent names.** Choose address-book names or public WhatsApp
   profile names for chats, mentions, replies, and notifications.
 - **Runs in the background.** Closing the window keeps ZapFast in the system
-  tray. Notifications can show the chat picture and open the chat. Muting a
-  chat also mutes it on your phone.
+  tray. Notifications can show the chat picture and open the chat at the
+  message they announced. Supported desktops show the unread count on the app
+  icon in the taskbar or dock; on Windows, the count appears while the window
+  has a taskbar button. Muting a chat also mutes it on your phone.
 - **Copies message text.** Select part of a message or copy across messages
   with the time, date, and sender included.
 
@@ -53,8 +56,6 @@ ZapFast does not currently support:
   interactive messages. Use these in WhatsApp Web or on your phone. Embedded
   videos, documents, and templates without readable text
   also need another client.
-- Colour emoji on Windows: Segoe UI Emoji is not a bitmap font, so emoji
-  stay monochrome there for now.
 
 When reporting [an issue](https://github.com/crmne/zapfast/issues), include
 what happened, what you expected, and when it happened. This helps match the
@@ -74,7 +75,9 @@ ZapFast connects through
 [whatsapp-rust](https://github.com/oxidezap/whatsapp-rust), which grew out
 of the [whatsmeow](https://github.com/tulir/whatsmeow) lineage. WhatsApp
 Web defines the companion-device model. ZapFast is a sibling of
-[Spotifast](https://spotifast.rocks), a native client for Spotify.
+[Spotifast](https://spotifast.rocks), a native client for Spotify. Both are
+built on [fastframe](https://github.com/crmne/fastframe), the shared foundation
+for native Rust apps built with egui.
 
 ZapFast is an independent project, not affiliated with or endorsed by
 WhatsApp LLC or Meta. WhatsApp is a trademark of WhatsApp LLC.
