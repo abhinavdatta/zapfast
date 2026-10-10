@@ -2,7 +2,7 @@
 
 ## Users and purpose
 
-ZapFast serves people reading and sending WhatsApp messages on Linux, macOS,
+WAVO serves people reading and sending WhatsApp messages on Linux, macOS,
 and Windows. It is a small native companion client built with Rust and egui.
 The conversation is the primary workspace, with chats beside it and a composer
 below it.

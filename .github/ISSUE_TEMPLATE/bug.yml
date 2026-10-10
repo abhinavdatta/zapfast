@@ -5,11 +5,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please include the log from ZapFast's last run:
+        Please include the log from WAVO's last run:
 
-        - Linux: `~/.local/state/zapfast/zapfast.log`
-        - macOS: `~/Library/Application Support/me.paolino.zapfast/zapfast.log`
-        - Windows: `%LOCALAPPDATA%\paolino\zapfast\data\zapfast.log`
+        - Linux: `~/.local/state/wavo/wavo.log`
+        - macOS: `~/Library/Application Support/me.paolino.wavo/wavo.log`
+        - Windows: `%LOCALAPPDATA%\paolino\wavo\data\wavo.log`
 
         If the app crashed or vanished, include `panic.log` from the same folder.
         The log leaves out message contents and phone numbers. Do not attach
@@ -17,7 +17,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: ZapFast version and how you installed it
+      label: WAVO version and how you installed it
       placeholder: "0.16.2 from the AUR / the DMG / the Windows installer / the Flatpak bundle"
     validations:
       required: true
@@ -49,7 +49,7 @@ body:
   - type: textarea
     id: log
     attributes:
-      label: zapfast.log
+      label: wavo.log
       description: Reproduce the problem, quit the app, then paste the whole file here (and panic.log, if there is one). Paths are above.
       render: text
     validations:

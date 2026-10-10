@@ -130,7 +130,7 @@ const CHAT_COLUMNS: &str =
                     c.pinned_at, c.ephemeral_expiration, c.locked, c.group_subject_known,
                     c.notification_sound, c.marked_unread,
                     (SELECT f.position FROM favorites f WHERE f.chat = c.id), c.left,
-                    c.info_locked, c.group_admin";
+                    c.info_locked, c.group_admin, c.community";
 
 /// Adds columns introduced after the initial schema when missing.
 const MIGRATIONS: &[(&str, &str, &str)] = &[
@@ -161,6 +161,9 @@ const MIGRATIONS: &[(&str, &str, &str)] = &[
     ("chats", "group_admin", "INTEGER NOT NULL DEFAULT 0"),
     // Set once the phone says it holds nothing older than what it sent.
     ("chats", "history_start", "INTEGER NOT NULL DEFAULT 0"),
+    // The community parent group this chat belongs to, when it is part of
+    // one; the parent points at itself.
+    ("chats", "community", "TEXT"),
     ("contacts", "first_name", "TEXT"),
 ];
 const CHAT_JOIN: &str = "FROM chats c
@@ -218,6 +221,7 @@ fn chat_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Chat> {
         left: row.get(22)?,
         info_locked: row.get(23)?,
         admin: row.get(24)?,
+        community: row.get(25)?,
     })
 }
 
@@ -438,6 +442,15 @@ impl Archive {
         self.connection.execute(
             "UPDATE chats SET info_locked = ?2, group_admin = ?3 WHERE id = ?1",
             params![id, info_locked, admin],
+        )?;
+        Ok(())
+    }
+
+    /// Records the community a group belongs to. `None` clears a stale link.
+    pub fn set_community(&self, id: &str, community: Option<&str>) -> Result<()> {
+        self.connection.execute(
+            "UPDATE chats SET community = ?2 WHERE id = ?1",
+            params![id, community],
         )?;
         Ok(())
     }
@@ -2404,7 +2417,7 @@ pub(crate) mod tests {
     #[test]
     fn deleting_a_chat_removes_it_with_its_messages_and_reports_its_media() {
         let archive = Archive::in_memory().expect("opens");
-        let media = PathBuf::from("/cache/zapfast/media/m2.jpg");
+        let media = PathBuf::from("/cache/wavo/media/m2.jpg");
         let gone = furnished_chat(&archive, "1@s.whatsapp.net", &media);
         let kept = furnished_chat(&archive, "2@s.whatsapp.net", &media);
 
@@ -2513,7 +2526,7 @@ pub(crate) mod tests {
             size: 1,
             width: None,
             height: None,
-            path: Some(PathBuf::from(format!("/cache/zapfast/media/{name}.jpg"))),
+            path: Some(PathBuf::from(format!("/cache/wavo/media/{name}.jpg"))),
             state: Default::default(),
         };
         let card = |image: crate::model::Media| crate::model::InteractiveCard {
@@ -2567,7 +2580,7 @@ pub(crate) mod tests {
     #[test]
     fn clearing_a_chat_keeps_it_but_empties_its_messages_and_unread_count() {
         let archive = Archive::in_memory().expect("opens");
-        let media = PathBuf::from("/cache/zapfast/media/m2.jpg");
+        let media = PathBuf::from("/cache/wavo/media/m2.jpg");
         let chat = furnished_chat(&archive, "1@s.whatsapp.net", &media);
 
         let removed = archive.clear_chat(&chat).expect("clear");
@@ -3166,7 +3179,7 @@ pub(crate) mod tests {
 
     #[test]
     fn read_positions_and_pending_sync_survive_reopening_the_archive() {
-        let dir = std::env::temp_dir().join(format!("zapfast-read-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-read-test-{}", std::process::id()));
         let path = dir.join("archive.db");
         let _ = std::fs::remove_dir_all(&dir);
         let chat = "1@s.whatsapp.net";

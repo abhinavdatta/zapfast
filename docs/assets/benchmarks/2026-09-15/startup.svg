@@ -6,7 +6,7 @@
   <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
    <cc:Work>
     <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:description>Window appearance: ZapFast 152 ms, Chromium 528 ms. Chat UI observations: 0.69 s and 4.13 s, using different detectors.</dc:description>
+    <dc:description>Window appearance: WAVO 152 ms, Chromium 528 ms. Chat UI observations: 0.69 s and 4.13 s, using different detectors.</dc:description>
     <dc:format>image/svg+xml</dc:format>
     <dc:creator>
      <cc:Agent>
@@ -58,7 +58,7 @@ z
     <g id="ytick_1">
      <g id="line2d_1"/>
      <g id="text_1">
-      <!-- ZapFast -->
+      <!-- WAVO -->
       <g style="fill: #edf3f5" transform="translate(130.7775 166.356094) scale(0.12 -0.12)">
        <defs>
         <path id="DejaVuSans-3d" d="M 359 4666
@@ -1024,7 +1024,7 @@ z
     <g id="ytick_3">
      <g id="line2d_3"/>
      <g id="text_6">
-      <!-- ZapFast -->
+      <!-- WAVO -->
       <g style="fill: #edf3f5" transform="translate(130.7775 321.876094) scale(0.12 -0.12)">
        <use xlink:href="#DejaVuSans-3d"/>
        <use xlink:href="#DejaVuSans-44" transform="translate(68.5 0)"/>
@@ -2217,7 +2217,7 @@ z
    </g>
   </g>
   <g id="text_15">
-   <!-- zapfast.rocks/benchmarks -->
+   <!-- wavo.rocks/benchmarks -->
    <g style="fill: #25d366" transform="translate(60.48 478.71) scale(0.11 -0.11)">
     <defs>
      <path id="DejaVuSans-Bold-5d" d="M 366 3500

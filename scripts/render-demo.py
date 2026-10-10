@@ -2,7 +2,7 @@
 """Add the tour's pointer, click rings, and shortcut captions to a silent MP4.
 
 The app emits only input timing and coordinates. All visual annotations are
-composited here, outside ZapFast. Requires ffmpeg with libass, and ffprobe.
+composited here, outside WAVO. Requires ffmpeg with libass, and ffprobe.
 """
 import argparse
 import json
@@ -101,7 +101,7 @@ def main():
     # libass scales the captions from their logical size to the frame.
     out_width, out_height = even(width * args.scale), even(height * args.scale)
     band = even(64 * args.scale)
-    with tempfile.TemporaryDirectory(prefix='zapfast-tour-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='wavo-tour-') as tmp:
         ass = Path(tmp) / 'captions.ass'
         ass.write_text(captions(trace))
         subprocess.run([

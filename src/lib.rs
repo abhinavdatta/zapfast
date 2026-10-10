@@ -1,4 +1,4 @@
-//! ZapFast internals exposed for diagnostics and tests.
+//! WAVO internals exposed for diagnostics and tests.
 
 pub mod account;
 pub mod animation;
@@ -15,6 +15,7 @@ pub mod diagnostics;
 pub mod emoji;
 pub mod i18n;
 pub mod image_cache;
+pub mod image_edit;
 pub mod image_preview;
 #[cfg(target_os = "macos")]
 pub mod macos;
@@ -24,6 +25,8 @@ pub mod model;
 pub mod notify;
 pub mod opener;
 pub mod paths;
+pub mod pdf_preview;
+pub mod pdf_render;
 pub mod privacy;
 pub mod proxy;
 pub mod qr;

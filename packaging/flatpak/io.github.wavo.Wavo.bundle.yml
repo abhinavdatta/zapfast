@@ -1,0 +1,36 @@
+# The release workflow's Flatpak: the binary the Linux job built, packaged
+# into the same sandbox as io.github.wavo.Wavo.yml describes. The
+# job unpacks the release tarball into built/ beside this file first.
+id: io.github.wavo.Wavo
+runtime: org.freedesktop.Platform
+runtime-version: '26.08'
+sdk: org.freedesktop.Sdk
+command: wavo
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  - --socket=pulseaudio
+  - --share=network
+  # Archive encryption key.
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --persist=.local/state
+modules:
+  - name: wavo
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 wavo /app/bin/wavo
+      - install -Dm644 packaging/applications/*.desktop /app/share/applications/io.github.wavo.Wavo.desktop
+      - sed -i 's/^Icon=.*$/Icon=io.github.wavo.Wavo/;s/^StartupWMClass=wavo$/StartupWMClass=io.github.wavo.Wavo/' /app/share/applications/io.github.wavo.Wavo.desktop
+      - install -Dm644 packaging/icons/wavo.svg /app/share/icons/hicolor/scalable/apps/io.github.wavo.Wavo.svg
+      - install -Dm644 packaging/flatpak/io.github.wavo.Wavo.metainfo.xml /app/share/metainfo/io.github.wavo.Wavo.metainfo.xml
+      - install -Dm644 LICENSE /app/share/licenses/wavo/LICENSE
+    sources:
+      - type: dir
+        path: built
+      # Metainfo belongs to this packaging checkout, not the portable archive.
+      - type: file
+        path: io.github.wavo.Wavo.metainfo.xml
+        dest: packaging/flatpak

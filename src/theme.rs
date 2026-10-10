@@ -15,17 +15,15 @@ pub type Catalog = fastframe_theme::Catalog<Palette>;
 /// What a normal launch adds to the catalogue. Demos and tests leave it out
 /// and stay isolated from the desktop and its files.
 pub const DESKTOP_THEMES: fastframe_theme::DesktopThemes = fastframe_theme::DesktopThemes {
-    slug: "zapfast",
-    omarchy_template: include_str!("../contrib/omarchy/zapfast.json.tpl"),
-    // Every template ZapFast shipped before, so an untouched copy installed
-    // by an older release is replaced with the current one.
-    omarchy_previous_templates: &[include_str!(
-        "../contrib/omarchy/previous/zapfast-1.json.tpl"
-    )],
+    slug: "wavo",
+    omarchy_template: include_str!("../contrib/omarchy/wavo.json.tpl"),
+    // WAVO starts fresh; the wavo-named templates belong to the app this
+    // fork came from, which upgrades its own installed copies.
+    omarchy_previous_templates: &[],
     presets: true,
 };
 
-/// The shared palettes, as ZapFast reads them.
+/// The shared palettes, as WAVO reads them.
 pub fn presets() -> impl Iterator<Item = CustomTheme> {
     fastframe_theme::presets::themes::<Palette>()
 }
@@ -52,7 +50,7 @@ pub fn theme_status(status: fastframe_theme::Status) -> &'static str {
             "The Omarchy palette could not be loaded. Keeping the last usable appearance. See the log for details."
         }
         Status::Problem(Problem::LoaderFailed | _) => {
-            "Custom themes could not be loaded. Run zapfast reload-themes to try again."
+            "Custom themes could not be loaded. Run wavo reload-themes to try again."
         }
     }
 }
@@ -278,7 +276,7 @@ impl fastframe_theme::Palette for Palette {
     }
 
     /// Spotifast palettes share the sixteen interface colours. Derive the
-    /// chat-only colours when importing one, while keeping explicit ZapFast
+    /// chat-only colours when importing one, while keeping explicit WAVO
     /// overrides.
     fn derive(&mut self, given: &std::collections::BTreeSet<&str>) {
         if given.contains("window") && !given.contains("chat") {
@@ -377,7 +375,7 @@ pub fn tabular(weight: fastframe_fonts::Weight, size: f32) -> egui::FontId {
 }
 
 fn tabular_family(weight: fastframe_fonts::Weight) -> egui::FontFamily {
-    egui::FontFamily::Name(format!("zapfast-tabular-{}", weight.name()).into())
+    egui::FontFamily::Name(format!("wavo-tabular-{}", weight.name()).into())
 }
 
 /// Installs fonts, icons, and base style.
@@ -536,7 +534,7 @@ fn install_fonts(ctx: &egui::Context) {
 fn add_tabular(fonts: &mut egui::FontDefinitions) {
     use fastframe_fonts::Weight;
     for weight in Weight::ALL {
-        let name = format!("zapfast-tabular-{}", weight.name());
+        let name = format!("wavo-tabular-{}", weight.name());
         let mut data = egui::FontData::from_static(fastframe_fonts::INTER);
         data.tweak.coords = egui::epaint::text::VariationCoords::new([(b"wght", weight.value())]);
         fonts
@@ -606,9 +604,9 @@ pub fn apply_text_rendering_change(ctx: &egui::Context) -> bool {
 
 fastframe_icons::icons! {
     /// Every icon the interface draws. Icons Spotifast ships too come from
-    /// fastframe-icons (`lucide`); the rest are ZapFast's own files.
+    /// fastframe-icons (`lucide`); the rest are WAVO's own files.
     pub enum Icon {
-        prefix: "zapfast-icon-",
+        prefix: "wavo-icon-",
         directory: "../assets/icons/",
         Archive => "archive",
         ArrowDown => "arrow-down",
@@ -626,6 +624,7 @@ fastframe_icons::icons! {
         ListChecks => "list-checks",
         CircleAlert => lucide "circle-alert",
         CircleCheck => lucide "circle-check",
+        CircleDashed => "circle-dashed",
         CircleX => lucide "circle-x",
         Clock => lucide "clock",
         Contact => "contact",
@@ -683,6 +682,7 @@ fastframe_icons::icons! {
         Trash => lucide "trash-2",
         User => lucide "user",
         Users => lucide "users",
+        Megaphone => "megaphone",
         Video => "video",
         Volume2 => lucide "volume-2",
         VolumeX => lucide "volume-x",
@@ -773,18 +773,18 @@ pub fn circle_button(
 }
 
 /// Draws the app's mark as it ships: the lit disc and the ink bubble of
-/// `packaging/icons/zapfast.svg`, rendered once per pixel size.
+/// `packaging/icons/wavo.svg`, rendered once per pixel size.
 pub fn mark(ui: &egui::Ui, center: egui::Pos2, diameter: f32) {
     let ctx = ui.ctx();
     let pixels = (diameter * ctx.pixels_per_point()).round().max(1.0) as usize;
-    let id = egui::Id::new(("zapfast-mark", pixels));
+    let id = egui::Id::new(("wavo-mark", pixels));
     let texture = match ctx.data_mut(|data| data.get_temp::<egui::TextureHandle>(id)) {
         Some(texture) => texture,
         None => {
             let rgba = crate::util::app_icon_rgba(pixels);
             let image = egui::ColorImage::from_rgba_unmultiplied([pixels, pixels], &rgba);
             let texture = ctx.load_texture(
-                format!("zapfast-mark-{pixels}"),
+                format!("wavo-mark-{pixels}"),
                 image,
                 egui::TextureOptions::LINEAR,
             );
@@ -801,7 +801,7 @@ pub fn mark(ui: &egui::Ui, center: egui::Pos2, diameter: f32) {
 /// faint watermark.
 pub fn logo(ui: &egui::Ui, center: egui::Pos2, diameter: f32, disc: Color32, glyph: Color32) {
     ui.painter().circle_filled(center, diameter / 2.0, disc);
-    // Match `packaging/icons/zapfast-small.svg`: the bubble sits a little
+    // Match `packaging/icons/wavo-small.svg`: the bubble sits a little
     // right of and above the centre, where its tail balances it.
     let icon_size = diameter * 0.674;
     let icon_rect = egui::Rect::from_center_size(
@@ -1175,7 +1175,7 @@ mod tests {
         add_tabular(&mut fonts);
         for weight in Weight::ALL {
             let family = &fonts.families[&tabular_family(weight)];
-            assert_eq!(family[0], format!("zapfast-tabular-{}", weight.name()));
+            assert_eq!(family[0], format!("wavo-tabular-{}", weight.name()));
             assert_eq!(family[1..], fonts.families[&weight.family()][..]);
         }
         let ctx = egui::Context::default();
@@ -1419,7 +1419,7 @@ mod tests {
         assert!(ratio >= 4.5, "hover contrast is only {ratio:.2}:1");
     }
 
-    /// Every colour ZapFast has can be set by name, including the chat
+    /// Every colour WAVO has can be set by name, including the chat
     /// colours Spotifast's palettes lack; explicit ones win over derived ones.
     #[test]
     fn palette_files_set_every_colour_and_keep_explicit_chat_colours() {
@@ -1468,11 +1468,11 @@ mod tests {
         );
     }
 
-    /// ZapFast's Omarchy template adds the chat colours to the base ones and
+    /// WAVO's Omarchy template adds the chat colours to the base ones and
     /// renders as Omarchy's own renderer does.
     #[test]
     fn the_omarchy_template_renders_like_omarchy_in_light_and_dark_themes() {
-        const TEMPLATE: &str = include_str!("../contrib/omarchy/zapfast.json.tpl");
+        const TEMPLATE: &str = include_str!("../contrib/omarchy/wavo.json.tpl");
         for (colors, expected) in [
             (
                 include_str!("../tests/fixtures/omarchy/catppuccin.tsv"),
@@ -1504,8 +1504,8 @@ mod tests {
     #[test]
     fn the_shipped_omarchy_hook_has_not_drifted() {
         assert_eq!(
-            include_str!("../contrib/omarchy/zapfast-theme").replace("\r\n", "\n"),
-            fastframe_theme::omarchy::hook_script("zapfast")
+            include_str!("../contrib/omarchy/wavo-theme").replace("\r\n", "\n"),
+            fastframe_theme::omarchy::hook_script("wavo")
         );
     }
 

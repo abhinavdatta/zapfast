@@ -1,5 +1,5 @@
 ---
-title: Using ZapFast
+title: Using WAVO
 description: Send messages and use attachments, interactive messages, voice messages, and keyboard shortcuts.
 redirect_from:
   - /using-fastsapp/
@@ -28,7 +28,7 @@ on its text still selects the word.
 
 The sticker tab works like WhatsApp's: a row of tabs holds **Recent**
 (the clock), **Favorites** (the star), each of your packs, and **+** for
-adding more. ZapFast adds **Received** (the speech bubble) after Favorites.
+adding more. WAVO adds **Received** (the speech bubble) after Favorites.
 Click a sticker to send it. Animated stickers play on hover.
 
 **Recent** holds the stickers you sent, not the ones you received.
@@ -82,7 +82,7 @@ They stay above the composer until you send them, with the typed text as a
 caption. Press Escape or click a file's close button to remove it. Incoming
 non-sticker attachments up to 64 MiB download when they enter view if automatic
 downloads are on, or on click. Visible stickers download automatically up to the
-same limit. If an attachment has expired, ZapFast asks your phone to
+same limit. If an attachment has expired, WAVO asks your phone to
 upload it again.
 
 ## Interactive messages
@@ -95,7 +95,7 @@ include its option labels, and find these messages through search.
 - **Web links** have an external-link icon. Click one to open it in your browser,
   or focus it with the keyboard and press Enter.
 - **Reply buttons** send the selected response immediately, quoting the original
-  message. ZapFast includes the option identifier so the business can recognize
+  message. WAVO includes the option identifier so the business can recognize
   the choice. Legacy buttons, hydrated templates, and native-flow quick replies
   are supported.
 - **Simple lists** open a dialog with section headings and descriptions. Select an
@@ -134,8 +134,8 @@ Edited messages keep their current text, and downloaded images stay available.
 
 Embedded videos, documents, and templates containing only
 a reference to server-side text still need another client. A **More content in
-WhatsApp Web or on your phone** note marks content ZapFast cannot display.
-Interactive messages cannot yet be forwarded from ZapFast.
+WhatsApp Web or on your phone** note marks content WAVO cannot display.
+Interactive messages cannot yet be forwarded from WAVO.
 
 ### Lists, polls, and carousels
 
@@ -182,7 +182,7 @@ any other message ends the run. The speaker's pitch stays the same at every
 speed. The first play sends
 a played receipt. When the composer is empty, the send button becomes a
 microphone. Press Enter or the send button to send the recording, or Escape or
-the delete button to discard it. ZapFast raises the volume of quiet recordings.
+the delete button to discard it. WAVO raises the volume of quiet recordings.
 Starting a reply before recording includes the quoted message.
 
 ## Copying
@@ -213,14 +213,14 @@ Under the **Favorites** chip, the list keeps the phone's order and stays in plac
 
 A shared contact message shows the name from its vCard. When the card names a
 WhatsApp account, **Chat** opens a private conversation with it and, if the
-person is not already in ZapFast's contacts, **Add** saves them, adding them to
+person is not already in WAVO's contacts, **Add** saves them, adding them to
 your phone's contacts if you chose that for the last contact you added. A card with only a local number shows the number.
 
 The chips under the search bar narrow the list to **Unread**, **Private**
 (one-to-one chats), or **Groups**. A chip with unread chats shows how many it
 has. Click the active chip again, or **All**, to see every chat. The
 filter applies only to this list: search and the archive still show everything,
-and it resets when ZapFast restarts.
+and it resets when WAVO restarts.
 
 Right-click a chat to pin, archive, or mute it for eight hours, one week, or
 indefinitely. These changes also apply on your phone. Click the chat header to
@@ -229,10 +229,10 @@ see its picture, number, and group members.
 ## Labels
 
 Labels are yours alone. They stay on this computer, they never reach your phone,
-and nobody else sees them. They are not WhatsApp Business labels, and ZapFast
+and nobody else sees them. They are not WhatsApp Business labels, and WAVO
 does not read or change those. Open **Labels** in any chat's right-click menu
 and choose **Manage labels…** to make one, with a name and one of the offered
-colours. ZapFast keeps up to twenty.
+colours. WAVO keeps up to twenty.
 
 A chat can wear several labels at once. The **Labels** submenu of a chat's
 right-click menu lists them, with a checkmark beside the ones the chat wears;
@@ -253,11 +253,11 @@ it, and `Ctrl+B` brings the full list back.
 
 ## Notifications and the tray
 
-Closing the window keeps ZapFast linked in the tray. Click the tray icon or
+Closing the window keeps WAVO linked in the tray. Click the tray icon or
 launch the app again to reopen it. Launchers that support the Unity Launcher API
 show the unread count as a badge on the app icon: KDE Plasma's taskbar, with
 **Show badges** enabled in the Task Manager settings, and GNOME's Dash to Dock
-or Dash to Panel. Windows overlays a compact unread-message count on ZapFast's
+or Dash to Panel. Windows overlays a compact unread-message count on WAVO's
 taskbar button while the window is open, using `99+` above 99. Windows must use
 its regular taskbar icon size for overlays to appear. The count
 does not count toasts remaining in Windows notification history. On Linux and

@@ -279,7 +279,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                         canvas,
                         Layout::centered_and_justified(egui::Direction::TopDown),
                         |ui| {
-                            ui.label("This image could not be displayed in ZapFast.");
+                            ui.label("This image could not be displayed in WAVO.");
                             if ui.button("Open externally").clicked() {
                                 app.actions
                                     .push(Action::OpenFile(preview.path().to_owned()));

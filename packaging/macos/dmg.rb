@@ -8,7 +8,7 @@ require "tmpdir"
 payload, output = ARGV
 abort "usage: dmg.rb PAYLOAD OUTPUT.dmg" unless payload && output
 abort "output already exists: #{output}" if File.exist?(output)
-Dir.mktmpdir("zapfast-dmg-") do |directory|
+Dir.mktmpdir("wavo-dmg-") do |directory|
   FileUtils.cp_r(File.join(payload, "."), directory, preserve: true)
   File.symlink("/Applications", File.join(directory, "Applications"))
   # hdiutil sizes an image from -srcfolder by estimate, and on GitHub's macOS
@@ -19,7 +19,7 @@ Dir.mktmpdir("zapfast-dmg-") do |directory|
   created = 3.times.any? do |attempt|
     FileUtils.rm_f(output)
     sleep(5 * attempt)
-    system("hdiutil", "create", "-volname", "ZapFast", "-srcfolder", directory,
+    system("hdiutil", "create", "-volname", "WAVO", "-srcfolder", directory,
       "-size", "#{megabytes}m", "-format", "UDZO", output)
   end
   unless created

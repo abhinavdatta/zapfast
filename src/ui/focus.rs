@@ -33,6 +33,11 @@ pub enum Stop {
     /// One chip in the label row, by its position among the labels.
     Label(u8),
     ManageLabels,
+    /// The left rail's page tabs: Chats, Status, Channels, Communities.
+    RailChats,
+    RailStatus,
+    RailChannels,
+    RailCommunities,
 }
 
 #[derive(Clone, Copy, Debug)]

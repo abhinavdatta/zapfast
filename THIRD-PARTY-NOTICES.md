@@ -2,7 +2,7 @@
 
 ## Pidgin notification sounds
 
-`assets/sounds/receive.wav` and `assets/sounds/alert.wav`, built into ZapFast,
+`assets/sounds/receive.wav` and `assets/sounds/alert.wav`, built into WAVO,
 are Pidgin's message sounds from the Pidgin 2.14.14 source release
 (<https://pidgin.im>), unmodified, distributed under the GNU General Public
 License, version 2:

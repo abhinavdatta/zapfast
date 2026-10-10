@@ -8,7 +8,7 @@
 //! its picture is painted over it. New pictures are drawn on a worker
 //! thread, so a picker full of unseen emoji never stalls a frame; tests and
 //! demo builds draw them inside the frame so every screenshot shows them.
-//! These wrappers install ZapFast's choice before the first use.
+//! These wrappers install WAVO's choice before the first use.
 
 use egui::text::LayoutJob;
 use egui::{Pos2, Rect, TextFormat};

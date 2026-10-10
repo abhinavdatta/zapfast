@@ -14,7 +14,7 @@ body:
   - type: textarea
     id: problem
     attributes:
-      label: What problem should ZapFast solve?
+      label: What problem should WAVO solve?
       description: Explain what you are trying to do and what stops you.
       placeholder: "When I ..., I cannot ..., so I currently have to ..."
     validations:
@@ -29,7 +29,7 @@ body:
   - type: textarea
     id: fit
     attributes:
-      label: Why does this fit ZapFast?
+      label: Why does this fit WAVO?
       description: Explain why it belongs in a small, native WhatsApp client.
     validations:
       required: true

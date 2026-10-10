@@ -88,7 +88,7 @@ mod tests {
             pairing_phone: Some(phone.into()),
         };
 
-        // The previous Debug formatting leaked every field into zapfast.log.
+        // The previous Debug formatting leaked every field into wavo.log.
         let previous = format!("link: {status:?}");
         assert!(previous.contains(qr));
         assert!(previous.contains(code));
@@ -349,7 +349,7 @@ pub enum Command {
         complete: bool,
     },
     /// Internal: the one-time replay of the phone's contacts, for the first
-    /// names saved before ZapFast kept them, finished.
+    /// names saved before WAVO kept them, finished.
     FirstNamesRecovered {
         complete: bool,
     },
@@ -585,7 +585,7 @@ pub enum Command {
     /// Sets aside an unreadable archive and the linked session, then starts
     /// over with a new archive and a new link.
     StartOverArchive,
-    /// Whether the person is looking at ZapFast. While they are not, the
+    /// Whether the person is looking at WAVO. While they are not, the
     /// linked phone keeps receiving push notifications.
     SetOnline(bool),
     Shutdown,
@@ -664,6 +664,9 @@ pub enum Command {
         /// The chat's rename generation when this metadata was asked for. A
         /// snapshot older than a rename made here cannot restore the old name.
         subject_generation: u64,
+        /// The community parent group this chat belongs to; a parent group
+        /// points at itself.
+        community: Option<ChatId>,
     },
     /// Internal pairing-code result.
     PairCode {
@@ -1015,14 +1018,14 @@ impl Backend {
         let (event_tx, event_rx) = std::sync::mpsc::channel();
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
-            .thread_name("zapfast-runtime")
+            .thread_name("wavo-runtime")
             .enable_all()
             .build()
             .expect("unable to start the async runtime");
         let worker_commands = command_tx.clone();
         let (startup, started) = tokio::sync::oneshot::channel();
         let thread = std::thread::Builder::new()
-            .name("zapfast-backend".to_string())
+            .name("wavo-backend".to_string())
             .spawn(move || {
                 runtime.block_on(async move {
                     if started.await.is_ok() {

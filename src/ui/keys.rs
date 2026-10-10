@@ -2,16 +2,26 @@
 
 use egui::{Key, Modifiers};
 
+pub use super::focus::Stop;
+
 use crate::app::App;
 use crate::model::{Action, Chat, Dialog, Page, Scroll};
 
 pub fn handle(app: &mut App, ctx: &egui::Context) {
+    if app.pdf_preview.is_some() {
+        pdf_keys(app, ctx);
+        return;
+    }
     if app.image_preview.is_some() {
         preview_keys(app, ctx);
         return;
     }
     if app.video_expanded {
         video_keys(app, ctx);
+        return;
+    }
+    if app.image_editor.is_some() {
+        editor_keys(app, ctx);
         return;
     }
     let editing_text = ctx.text_edit_focused();
@@ -316,6 +326,67 @@ pub(super) fn take_plain(input: &mut egui::InputState, key: Key) -> bool {
     taken
 }
 
+/// Handles keys while the photo editor is open: Escape closes it, Ctrl+Z
+/// and Ctrl+Shift+Z step the edit history, Ctrl+R rotates right, Ctrl+Shift+R
+/// left, and Ctrl+Enter sends. No chat shortcut runs while a picture is
+/// being edited.
+fn editor_keys(app: &mut App, ctx: &egui::Context) {
+    let mut actions = Vec::new();
+    ctx.input_mut(|input| {
+        if input.consume_key(Modifiers::NONE, Key::Escape) {
+            actions.push(Action::CloseImageEditor);
+            return;
+        }
+        let undo = input.consume_key(Modifiers::COMMAND, Key::Z);
+        let redo = input.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z)
+            || input.consume_key(Modifiers::COMMAND, Key::Y);
+        if undo {
+            actions.push(Action::EditorUndo);
+        }
+        if redo {
+            actions.push(Action::EditorRedo);
+        }
+        if input.consume_key(Modifiers::COMMAND, Key::R) {
+            actions.push(Action::EditorOp(crate::image_edit::EditOp::RotateRight));
+        }
+        if input.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::R) {
+            actions.push(Action::EditorOp(crate::image_edit::EditOp::RotateLeft));
+        }
+        if input.consume_key(Modifiers::COMMAND, Key::Enter) {
+            actions.push(Action::EditorSend);
+        }
+    });
+    app.actions.extend(actions);
+}
+
+/// Zoom, fit, page, and dismiss keys for the PDF viewer, mirroring the image
+/// preview's modal handling.
+fn pdf_keys(app: &mut App, ctx: &egui::Context) {
+    let mut actions = Vec::new();
+    ctx.input_mut(|input| {
+        if input.consume_key(Modifiers::NONE, Key::Escape) {
+            actions.push(Action::ClosePdfPreview);
+        }
+        let mut event_actions = Vec::new();
+        for event in &input.events {
+            if let egui::Event::Key {
+                key,
+                modifiers,
+                pressed: true,
+                ..
+            } = event
+            {
+                event_actions.extend(crate::pdf_preview::preview_action(*key, *modifiers));
+            }
+        }
+        actions.extend(event_actions);
+        input
+            .events
+            .retain(|event| !crate::pdf_preview::consumes_key(event));
+    });
+    app.actions.extend(actions);
+}
+
 /// Handles keys while the image preview is open. No chat shortcut runs, and
 /// typing and clipboard input are swallowed; Tab, Enter, Space and the arrows
 /// stay for the preview's own controls.
@@ -445,8 +516,8 @@ pub const SHORTCUTS: &[(&str, &str)] = &[
     ("Ctrl++ / Ctrl+-", "Zoom in / out"),
     ("Ctrl+0", "Reset zoom"),
     ("? / Ctrl+/", "Keyboard shortcuts (? when not typing)"),
-    ("Ctrl+Shift+L", "Lock ZapFast (with an app lock password)"),
-    ("Ctrl+W", "Close the window (ZapFast remains in the tray)"),
+    ("Ctrl+Shift+L", "Lock WAVO (with an app lock password)"),
+    ("Ctrl+W", "Close the window (WAVO remains in the tray)"),
     ("Ctrl+Q", "Quit"),
 ];
 

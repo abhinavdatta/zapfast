@@ -5,9 +5,9 @@ it pins the shared CLI and nFPM versions and declares Linux amd64/arm64 inputs,
 DEB/RPM/AppImage contents, dependencies, recipe templates and downstream repositories.
 Application assets and native recipes stay in `packaging/`.
 
-Version 0.13.0 introduces the ZapFast name and `zapfast` binary. Its AUR recipes
+Version 0.13.0 introduces the WAVO name and `wavo` binary. Its AUR recipes
 provide and replace the corresponding FastsApp packages. The GitHub repository is
-`crmne/zapfast`, so source archives extract into `zapfast-VERSION`. Use the
+`abhinavdatta/wavo`, so source archives extract into `wavo-VERSION`. Use the
 configuration from the matching tag to rebuild an older FastsApp release.
 Existing release files keep their original names.
 
@@ -104,7 +104,7 @@ recipe generation to the Linux packaging job after release assets exist.
 
 ## Flatpak
 
-`packaging/flatpak/rocks.zapfast.ZapFast.yml` builds from source, with offline Cargo
+`packaging/flatpak/rocks.wavo.WAVO.yml` builds from source, with offline Cargo
 sources generated from the selected revision's lockfile. The adjacent bundle
 manifest reuses the Linux release binary, as in Spotifast. Both grant Wayland/X11,
 GPU, audio, network, keyring and tray access; attachments chosen by the user use
@@ -115,11 +115,11 @@ Generate a pinned Flathub checkout (Python needs `aiohttp`, `tomlkit` and `PyYAM
 
 ```sh
 packaging/flatpak/flathub.sh vX.Y.Z /path/to/flathub-checkout
-flatpak-builder --user --install --force-clean build-dir /path/to/flathub-checkout/rocks.zapfast.ZapFast.yml
+flatpak-builder --user --install --force-clean build-dir /path/to/flathub-checkout/rocks.wavo.WAVO.yml
 ```
 
 Flathub submission/review is a separate publication step; the manifest alone does
-not make ZapFast available in Flathub. A maintainer must submit it manually:
+not make WAVO available in Flathub. A maintainer must submit it manually:
 [Flathub's requirements](https://docs.flathub.org/docs/for-app-authors/requirements#generative-ai-policy)
 prohibit AI agents from submitting or writing submission interactions and require
 disclosure of generated material. Review the manifests and these changes before

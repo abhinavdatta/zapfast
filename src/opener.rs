@@ -187,8 +187,8 @@ mod tests {
     fn file_uris_escape_what_a_path_segment_cannot_carry() {
         use linux::file_uri;
         assert_eq!(
-            file_uri(Path::new("/home/ada/.local/state/zapfast/zapfast.log")),
-            "file:///home/ada/.local/state/zapfast/zapfast.log"
+            file_uri(Path::new("/home/ada/.local/state/wavo/wavo.log")),
+            "file:///home/ada/.local/state/wavo/wavo.log"
         );
         assert_eq!(
             file_uri(Path::new("/home/José Ω/a#b%c.log")),
@@ -207,11 +207,8 @@ mod tests {
         assert_eq!(launch(Command::new("sh").args(["-c", "exit 0"])), Ok(()));
         let failed = launch(Command::new("sh").args(["-c", "exit 4"])).unwrap_err();
         assert!(failed.starts_with("sh failed"), "{failed}");
-        let missing = launch(&mut Command::new("zapfast-no-such-launcher")).unwrap_err();
-        assert!(
-            missing.starts_with("zapfast-no-such-launcher: "),
-            "{missing}"
-        );
+        let missing = launch(&mut Command::new("wavo-no-such-launcher")).unwrap_err();
+        assert!(missing.starts_with("wavo-no-such-launcher: "), "{missing}");
         let started = Instant::now();
         assert_eq!(launch(Command::new("sh").args(["-c", "sleep 30"])), Ok(()));
         assert!(started.elapsed() < LAUNCH_GRACE + Duration::from_secs(2));

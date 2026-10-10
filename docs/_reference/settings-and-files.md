@@ -6,36 +6,36 @@ nav_order: 0
 
 ## File locations
 
-ZapFast follows each platform's conventions. On Linux:
+WAVO follows each platform's conventions. On Linux:
 
 | What | Where | Safe to delete? |
 | --- | --- | --- |
-| Settings | `~/.config/zapfast/settings.json` | Yes, you lose preferences |
-| Message archive | `~/.local/state/zapfast/archive.db` | Yes; only history available from WhatsApp can be restored |
-| Session keys | `~/.local/state/zapfast/session.db` | Yes; you must link again |
-| Attachments | `~/.cache/zapfast/media/` | Yes; available files download again when viewed |
-| Profile pictures | `~/.cache/zapfast/avatars/` | Always |
-| Stickers | `~/.cache/zapfast/stickers/` | Always |
-| GIF search stills | `~/.cache/zapfast/gifs/` | Always |
-| Last run's log | `~/.local/state/zapfast/zapfast.log` | Always |
-| Crash log | `~/.local/state/zapfast/panic.log` | Always |
+| Settings | `~/.config/wavo/settings.json` | Yes, you lose preferences |
+| Message archive | `~/.local/state/wavo/archive.db` | Yes; only history available from WhatsApp can be restored |
+| Session keys | `~/.local/state/wavo/session.db` | Yes; you must link again |
+| Attachments | `~/.cache/wavo/media/` | Yes; available files download again when viewed |
+| Profile pictures | `~/.cache/wavo/avatars/` | Always |
+| Stickers | `~/.cache/wavo/stickers/` | Always |
+| GIF search stills | `~/.cache/wavo/gifs/` | Always |
+| Last run's log | `~/.local/state/wavo/wavo.log` | Always |
+| Crash log | `~/.local/state/wavo/panic.log` | Always |
 
 Back up the archive if you need its history. WhatsApp sends only recent
-history to a new device, although ZapFast can request some older messages from
-the phone. Clearing the media cache makes ZapFast download attachments again.
+history to a new device, although WAVO can request some older messages from
+the phone. Clearing the media cache makes WAVO download attachments again.
 Expired attachments may still be available through the phone.
 
 On macOS, settings, state, and the logs are in
-`~/Library/Application Support/me.paolino.zapfast` and the caches in
-`~/Library/Caches/me.paolino.zapfast`. On Windows, settings are in
-`%APPDATA%\paolino\zapfast\config`, state and the logs in
-`%LOCALAPPDATA%\paolino\zapfast\data`, and the caches in
-`%LOCALAPPDATA%\paolino\zapfast\cache`.
+`~/Library/Application Support/me.paolino.wavo` and the caches in
+`~/Library/Caches/me.paolino.wavo`. On Windows, settings are in
+`%APPDATA%\paolino\wavo\config`, state and the logs in
+`%LOCALAPPDATA%\paolino\wavo\data`, and the caches in
+`%LOCALAPPDATA%\paolino\wavo\cache`.
 
-On first start, ZapFast moves the corresponding `fastsapp` directories (or
+On first start, WAVO moves the corresponding `fastsapp` directories (or
 `fastwhatsapp` from earlier versions), including the session, archive, saved
-stickers, and window state. Existing ZapFast directories are never overwritten.
-Quit FastsApp first; launching ZapFast while it is running brings the existing
+stickers, and window state. Existing WAVO directories are never overwritten.
+Quit FastsApp first; launching WAVO while it is running brings the existing
 window forward.
 
 ## Settings
@@ -85,13 +85,13 @@ name or description, in the interface language or in English.
 
 **System**
 
-- **Keep running when the window closes**: keep ZapFast linked in the tray.
+- **Keep running when the window closes**: keep WAVO linked in the tray.
 - **Start at login**: start in the tray without a window, where the platform
   supports it.
 - **Check for updates**: ask GitHub once a day whether a newer release exists.
 - **Download updates automatically**: download and verify a new release in the
   background; restarting stays your choice. Package managers and Flatpak update
-  ZapFast themselves.
+  WAVO themselves.
 - **Proxy**: for WhatsApp, media, and updates. Empty uses `ALL_PROXY` or
   `HTTPS_PROXY`.
 - **GIPHY API key**: for GIF search, unless the build includes one. Set
@@ -120,5 +120,5 @@ the one above: it stays on only if both were on.
 
 ## The log
 
-Each run replaces `zapfast.log` and records warnings and errors. Include the
+Each run replaces `wavo.log` and records warnings and errors. Include the
 end of this file when reporting an issue.

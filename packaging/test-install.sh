@@ -27,29 +27,29 @@ docker run --rm \
     set -- /packages/*."$FORMAT"
     test "$#" -eq 1
     test -f "$1"
-    mkdir -p /root/.config/zapfast
-    printf "%s\n" "preserve-existing-settings" > /root/.config/zapfast/fixture
+    mkdir -p /root/.config/wavo
+    printf "%s\n" "preserve-existing-settings" > /root/.config/wavo/fixture
     if [ "$FORMAT" = deb ]; then
       apt-get update
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$1"
-      dpkg-query -W zapfast
+      dpkg-query -W wavo
     else
       dnf install -y --setopt=install_weak_deps=False "$1"
-      rpm -q zapfast
+      rpm -q wavo
     fi
-    zapfast --version
+    wavo --version
     /checks/check-runtime-libs
-    test -s /usr/share/applications/zapfast.desktop
-    test -s /usr/share/icons/hicolor/scalable/apps/zapfast.svg
-    grep -qx "Icon=zapfast" /usr/share/applications/zapfast.desktop
-    grep -qx "StartupWMClass=zapfast" /usr/share/applications/zapfast.desktop
-    test -s /usr/share/zapfast/omarchy/zapfast.json.tpl
-    test -x /usr/share/zapfast/omarchy/zapfast-theme
-    if [ "$FORMAT" = deb ]; then apt-get remove -y zapfast; else dnf remove -y zapfast; fi
-    test ! -e /usr/bin/zapfast
-    test ! -e /usr/share/applications/zapfast.desktop
-    test ! -e /usr/share/icons/hicolor/scalable/apps/zapfast.svg
-    test ! -e /usr/share/zapfast/omarchy/zapfast.json.tpl
-    test ! -e /usr/share/zapfast/omarchy/zapfast-theme
-    test "$(cat /root/.config/zapfast/fixture)" = preserve-existing-settings
+    test -s /usr/share/applications/wavo.desktop
+    test -s /usr/share/icons/hicolor/scalable/apps/wavo.svg
+    grep -qx "Icon=wavo" /usr/share/applications/wavo.desktop
+    grep -qx "StartupWMClass=wavo" /usr/share/applications/wavo.desktop
+    test -s /usr/share/wavo/omarchy/wavo.json.tpl
+    test -x /usr/share/wavo/omarchy/wavo-theme
+    if [ "$FORMAT" = deb ]; then apt-get remove -y wavo; else dnf remove -y wavo; fi
+    test ! -e /usr/bin/wavo
+    test ! -e /usr/share/applications/wavo.desktop
+    test ! -e /usr/share/icons/hicolor/scalable/apps/wavo.svg
+    test ! -e /usr/share/wavo/omarchy/wavo.json.tpl
+    test ! -e /usr/share/wavo/omarchy/wavo-theme
+    test "$(cat /root/.config/wavo/fixture)" = preserve-existing-settings
   '

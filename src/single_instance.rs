@@ -1,12 +1,11 @@
-//! One running ZapFast per user, through fastframe-instance.
+//! One running WAVO per user, through fastframe-instance.
 //!
 //! The crate holds the lock in the per-user runtime directory and serves the
 //! private channel a later launch hands its request over (a socket only the
-//! user can open, or a token-checked loopback port on Windows). ZapFast keeps
-//! its verbs, its directory, and the `fastsapp:` prefix, so a new launch still
-//! reaches an older copy that is already running, and an older launch this
-//! one. Copies from before the lock (0.15 and earlier) only know a fixed
-//! port, which this module still answers.
+//! user can open, or a token-checked loopback port on Windows). WAVO keeps
+//! the `fastsapp:` wire identity and the `fastsapp` slot of earlier ZapFast
+//! copies, and accepts their fixed legacy port, so a running old copy and a
+//! new launch still find each other across the rename.
 
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
@@ -14,12 +13,13 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-/// Stable wire identity shared with FastsApp so upgrades surface a running
-/// older copy before migrating its session files. On the wire every request
-/// and reply starts with `fastsapp:`.
+/// Stable wire identity shared with WAVO and FastsApp, so a new launch
+/// also surfaces an already-running WAVO copy before migrating its
+/// session files. On the wire every request and reply starts with
+/// `fastsapp:`.
 const NAME: &str = "fastsapp";
 const PREFIX: &str = "fastsapp:";
-/// What ZapFast answers a request it takes: `fastsapp:ok` on the wire.
+/// What WAVO answers a request it takes: `fastsapp:ok` on the wire.
 const OK: &str = "ok";
 
 /// Fixed port of copies that predate the lock. They never take it.
@@ -68,7 +68,7 @@ impl Guard {
     }
 }
 
-/// ZapFast's slot: its runtime directory, with the prefix older copies use.
+/// WAVO's slot: its runtime directory, with the prefix older copies use.
 fn slot(dir: &Path) -> fastframe_instance::Slot {
     fastframe_instance::Slot::at(dir, NAME)
 }
@@ -141,7 +141,7 @@ fn legacy_instance_answers(verb: &str) -> bool {
     let answered = TcpStream::connect_timeout(&address, REPLY_TIME)
         .and_then(|stream| legacy_request(stream, verb))
         .is_ok();
-    // A background start never runs beside a copy that may be ZapFast,
+    // A background start never runs beside a copy that may be WAVO,
     // including older ones that do not answer `ping`.
     answered || verb == "ping"
 }
@@ -161,7 +161,7 @@ fn legacy_request(mut stream: TcpStream, verb: &str) -> std::io::Result<()> {
     } else {
         Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
-            "the port is held by something other than ZapFast",
+            "the port is held by something other than WAVO or WAVO",
         ))
     }
 }
@@ -180,7 +180,7 @@ fn listen_legacy(commands: Queue, waker: crate::backend::Waker) {
         }
     };
     let spawned = std::thread::Builder::new()
-        .name("zapfast-legacy-instance".to_owned())
+        .name("wavo-legacy-instance".to_owned())
         .spawn(move || serve_legacy(listener, &commands, &waker));
     if let Err(error) = spawned {
         log::debug!("cannot answer older launches: {error}");

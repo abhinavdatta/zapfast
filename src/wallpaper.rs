@@ -330,7 +330,7 @@ fn bounded(image: image::DynamicImage) -> image::DynamicImage {
     }
 }
 
-/// Copies a chosen image to ZapFast's own `wallpaper.<ext>`, so the original
+/// Copies a chosen image to WAVO's own `wallpaper.<ext>`, so the original
 /// may move or go. An image larger than [`MAX_SIDE`] is scaled down first and
 /// stored as JPEG, or PNG when it has transparency; a smaller one is copied as
 /// it is. Earlier copies are removed once the new one is in place.
@@ -385,7 +385,7 @@ fn encode(image: &image::DynamicImage) -> Result<(Vec<u8>, &'static str), String
     Ok((contents, extension))
 }
 
-/// Deletes ZapFast's copy of the wallpaper image, whatever its extension.
+/// Deletes WAVO's copy of the wallpaper image, whatever its extension.
 pub fn remove(state: &Path) {
     for extension in EXTENSIONS {
         match std::fs::remove_file(state.join(format!("wallpaper.{extension}"))) {

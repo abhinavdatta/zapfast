@@ -9,7 +9,7 @@ use windows_sys::Win32::System::Registry::{
 };
 use winrt_notification::{IconCrop, Toast};
 
-const APPLICATION_ID: &str = "me.paolino.zapfast";
+const APPLICATION_ID: &str = "io.github.wavo.Wavo";
 
 fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(Some(0)).collect()
@@ -20,7 +20,7 @@ fn register_identity() -> std::io::Result<()> {
         r"Software\Classes\AppUserModelId\{APPLICATION_ID}"
     ));
     let name = wide("DisplayName");
-    let value = wide("ZapFast");
+    let value = wide("WAVO");
     let mut key = std::ptr::null_mut();
     // All buffers are NUL-terminated UTF-16 and remain alive during each call.
     let status = unsafe { RegCreateKeyW(HKEY_CURRENT_USER, path.as_ptr(), &mut key) };
@@ -48,7 +48,7 @@ fn register_identity() -> std::io::Result<()> {
 fn notification(title: &str, body: &str, picture: Option<&Path>, system_sound: bool) -> Toast {
     let toast = Toast::new(APPLICATION_ID).title(title).text1(body);
     // Without the system sound the toast is silent; a custom sound is played
-    // by ZapFast itself.
+    // by WAVO itself.
     let toast = if system_sound {
         toast
     } else {
@@ -95,7 +95,7 @@ mod tests {
 
     #[test]
     fn installer_shortcuts_use_the_toast_identity() {
-        let installer = include_str!("../../packaging/windows/zapfast.iss");
+        let installer = include_str!("../../packaging/windows/wavo.iss");
         let shortcuts: Vec<_> = installer
             .lines()
             .filter(|line| {

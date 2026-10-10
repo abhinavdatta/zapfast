@@ -98,10 +98,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libasound2t64
-          set -- dist/native-packages/packages/"$TARGET"/appimage/zapfast-*-"$ARCH".AppImage
+          set -- dist/native-packages/packages/"$TARGET"/appimage/wavo-*-"$ARCH".AppImage
           test "$#" -eq 1
           chmod +x "$1"
-          "$1" --appimage-extract-and-run --version | grep -Ex '(zapfast|fastsapp) [0-9]+\.[0-9]+\.[0-9]+.*'
+          "$1" --appimage-extract-and-run --version | grep -Ex '(wavo|fastsapp) [0-9]+\.[0-9]+\.[0-9]+.*'
 
   user-installer:
     name: User installer

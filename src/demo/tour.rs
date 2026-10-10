@@ -31,7 +31,7 @@ pub enum Script {
     /// The 41-second launch tour: search, replies, GIFs, stickers, themes.
     #[default]
     Launch,
-    /// What ZapFast 0.16 added, about 90 seconds.
+    /// What WAVO 0.16 added, about 90 seconds.
     WhatsNew,
 }
 
@@ -99,7 +99,7 @@ pub fn prepare(app: &mut App) {
         .get_mut(super::SAMPLES[0].id)
         .and_then(|chat| chat.message_mut("ada-link"))
     {
-        row.content = Content::text("The desktop app is ready! https://zapfast.rocks");
+        row.content = Content::text("The desktop app is ready! https://wavo.rocks");
         row.thumbnail = None;
         let summary = row.summary();
         if let Some(last) = app.chats.first_mut().and_then(|chat| chat.last.as_mut()) {

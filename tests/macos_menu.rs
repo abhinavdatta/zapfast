@@ -4,7 +4,7 @@
 //! muda keeps the first menu-event handler it is given and ignores later
 //! ones, and fastframe-tray installs one when it makes its item on the first
 //! window. If that came first, Settings… (and its ⌘, shortcut), About, Quit
-//! and every other ZapFast menu item did nothing.
+//! and every other WAVO menu item did nothing.
 //!
 //! AppKit menus work only on the main thread, where libtest never runs a
 //! test, so this file has no harness and does its work in `main`.
@@ -12,19 +12,19 @@
 #[cfg(target_os = "macos")]
 fn main() {
     use objc2_app_kit::NSApplication;
-    use zapfast::model::Page;
+    use wavo::model::Page;
 
     let mtm = objc2::MainThreadMarker::new().expect("a harness-less test runs on the main thread");
     let root = tempfile::tempdir().expect("a temporary directory");
-    let dirs = zapfast::paths::AppDirs::under(root.path());
-    let settings = zapfast::settings::Settings::default();
+    let dirs = wavo::paths::AppDirs::under(root.path());
+    let settings = wavo::settings::Settings::default();
     // The backend waits for the first drawn frame before it starts, so it
     // never links or opens an archive here.
-    let mut app = zapfast::app::App::new(
-        &zapfast::backend::Waker::default(),
+    let mut app = wavo::app::App::new(
+        &wavo::backend::Waker::default(),
         dirs,
         settings,
-        zapfast::app::AppOptions { tray: true },
+        wavo::app::AppOptions { tray: true },
     )
     .expect("a fresh app over an empty folder");
     let ctx = egui::Context::default();
@@ -36,7 +36,7 @@ fn main() {
     let submenu = menu
         .itemAtIndex(0)
         .and_then(|item| item.submenu())
-        .expect("the ZapFast menu");
+        .expect("the WAVO menu");
     let index = (0..submenu.numberOfItems())
         .find(|&index| {
             submenu

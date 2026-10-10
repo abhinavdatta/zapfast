@@ -87,8 +87,8 @@
             libxi
             libxrandr
           ];
-          zapfast = rustPlatform.buildRustPackage rec {
-            pname = "zapfast";
+          wavo = rustPlatform.buildRustPackage rec {
+            pname = "wavo";
             version = (pkgs.lib.importTOML ./Cargo.toml).package.version;
             src = self;
 
@@ -115,33 +115,33 @@
 
             # The GUI dlopens its Wayland, X11 and GL libraries at run time.
             postFixup = ''
-              wrapProgram $out/bin/zapfast \
+              wrapProgram $out/bin/wavo \
                 --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath runtimeLibs}
             '';
 
             postInstall = ''
-              install -Dm644 packaging/applications/zapfast.desktop \
-                $out/share/applications/zapfast.desktop
-              install -Dm644 packaging/icons/zapfast.svg \
-                $out/share/icons/hicolor/scalable/apps/zapfast.svg
-              install -Dm644 contrib/omarchy/zapfast.json.tpl \
-                $out/share/zapfast/omarchy/zapfast.json.tpl
-              install -Dm755 contrib/omarchy/zapfast-theme \
-                $out/share/zapfast/omarchy/zapfast-theme
+              install -Dm644 packaging/applications/wavo.desktop \
+                $out/share/applications/wavo.desktop
+              install -Dm644 packaging/icons/wavo.svg \
+                $out/share/icons/hicolor/scalable/apps/wavo.svg
+              install -Dm644 contrib/omarchy/wavo.json.tpl \
+                $out/share/wavo/omarchy/wavo.json.tpl
+              install -Dm755 contrib/omarchy/wavo-theme \
+                $out/share/wavo/omarchy/wavo-theme
             '';
 
             meta = {
               description = "Fast native WhatsApp client";
-              homepage = "https://zapfast.rocks";
+              homepage = "https://wavo.rocks";
               license = with pkgs.lib.licenses; [ mit gpl2Only ];
-              mainProgram = "zapfast";
+              mainProgram = "wavo";
               platforms = pkgs.lib.platforms.linux;
             };
           };
         in
         {
-          default = zapfast;
-          inherit zapfast;
+          default = wavo;
+          inherit wavo;
         }
       );
 

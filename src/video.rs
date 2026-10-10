@@ -69,7 +69,7 @@ impl Status {
 /// Something the app has to act on after [`Player::poll`].
 #[derive(Debug, PartialEq, Eq)]
 pub enum Notice {
-    /// ZapFast cannot decode this video, so it should open in the system player.
+    /// WAVO cannot decode this video, so it should open in the system player.
     Unsupported(PathBuf),
 }
 

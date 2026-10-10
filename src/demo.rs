@@ -2097,11 +2097,11 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
                 use crate::updates::{DownloadState, Installation, Kind, Prepared};
                 app.update = Some(crate::updates::Release {
                     version: "99.0.0".to_owned(),
-                    url: "https://github.com/abhinavdatta/zapfast/releases/latest".to_owned(),
+                    url: "https://github.com/abhinavdatta/wavo/releases/latest".to_owned(),
                 });
                 app.show_update = true;
                 let installation = Installation {
-                    executable: "/demo/zapfast".into(),
+                    executable: "/demo/wavo".into(),
                     kind: Kind::Portable,
                 };
                 app.update_support = Some(Ok(installation.clone()));
@@ -2621,6 +2621,18 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
                 let (photo, _) = sample_files(app);
                 app.image_preview = Some(crate::image_preview::PreviewState::new(photo));
             }
+            "pdf-viewer" => {
+                let path = std::env::temp_dir().join("wavo-demo.pdf");
+                std::fs::write(&path, demo_pdf()).expect("write demo pdf");
+                app.actions
+                    .push(crate::model::Action::PreviewPdf(path.clone()));
+            }
+            "image-editor" => {
+                let (photo, _) = sample_files(app);
+                app.open_chat = Some(SAMPLES[0].id.into());
+                app.actions
+                    .push(crate::model::Action::OpenImageEditor(photo));
+            }
             "compose-emoji" => {
                 app.composer = "Andiamo 😊 con due 👍🏽 e poi testo normale".to_owned();
             }
@@ -2835,6 +2847,49 @@ fn contacts_by_id(app: &App) -> HashMap<&str, &Contact> {
         .collect()
 }
 
+/// A minimal but valid one-page PDF for the viewer demo.
+fn demo_pdf() -> Vec<u8> {
+    let text = b"BT /F1 24 Tf 72 720 Td (WAVO PDF viewer demo) Tj ET";
+    let objects: [&[u8]; 4] = [
+        b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n",
+        b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n",
+        b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n",
+        b"4 0 obj<</Length %LEN%>>stream\n%TEXT%\nendstream endobj\n",
+    ];
+    let mut body = Vec::new();
+    for object in objects.iter().take(3) {
+        body.extend_from_slice(object);
+    }
+    let stream_text = text.to_vec();
+    let replace = |haystack: &[u8], needle: &[u8], with: &[u8]| -> Vec<u8> {
+        let mut out = Vec::with_capacity(haystack.len());
+        let mut rest = haystack;
+        while let Some(position) = rest
+            .windows(needle.len())
+            .position(|window| window == needle)
+        {
+            out.extend_from_slice(&rest[..position]);
+            out.extend_from_slice(with);
+            rest = &rest[position + needle.len()..];
+        }
+        out.extend_from_slice(rest);
+        out
+    };
+    let last = replace(
+        objects[3],
+        b"%LEN%",
+        stream_text.len().to_string().as_bytes(),
+    );
+    let last = replace(&last, b"%TEXT%", &stream_text);
+    body.extend_from_slice(&last);
+    let mut pdf = b"%PDF-1.4\n".to_vec();
+    pdf.extend_from_slice(&body);
+    pdf.extend_from_slice(
+        b"5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF\n",
+    );
+    pdf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2843,7 +2898,7 @@ mod tests {
 
     pub(super) fn app() -> App {
         let root = std::env::temp_dir().join(format!(
-            "zapfast-demo-{}-{:?}",
+            "wavo-demo-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -4125,7 +4180,7 @@ mod tests {
             .filter_map(|(_, node)| node.label().or_else(|| node.value()))
             .collect();
         assert!(
-            labels.contains(&"Locked chats are read-only in ZapFast"),
+            labels.contains(&"Locked chats are read-only in WAVO"),
             "{labels:?}"
         );
         assert!(!labels.contains(&"admins"));
@@ -4335,6 +4390,8 @@ mod tests {
             "voice,voice-menu",
             "recording",
             "preview",
+            "pdf-viewer",
+            "image-editor",
             "gifs",
             "gifs-badkey",
             "react-menu",
@@ -9615,7 +9672,7 @@ mod tests {
                     }),
             );
         }
-        assert_eq!(opened, ["https://zapfast.rocks/themes/"]);
+        assert_eq!(opened, ["https://wavo.rocks/themes/"]);
     }
 
     /// The chat list is one clickable surface: each row starts where the one
@@ -10226,13 +10283,12 @@ mod tests {
                 Stop::Channels,
                 Stop::Archived,
                 Stop::Locked,
+                Stop::RailChats,
+                Stop::RailStatus,
+                Stop::RailChannels,
+                Stop::RailCommunities,
             ]
             .into_iter()
-            .filter(|stop| {
-                // The Mac header keeps the account switcher; the settings
-                // live in the app menu there.
-                !crate::theme::macos_chrome(&ctx) || *stop != Stop::Settings
-            })
             .collect();
             assert_eq!(
                 crate::ui::focus::stops(&ctx)
@@ -10284,7 +10340,9 @@ mod tests {
             assert!(ctx.read_response(row).unwrap().sense.is_focusable());
             for (modifiers, expected_stop) in [
                 (egui::Modifiers::NONE, Stop::Composer),
-                (egui::Modifiers::SHIFT, Stop::Locked),
+                // A row has no stop, so backwards wraps to the cycle's last
+                // one, the rail's Communities tab.
+                (egui::Modifiers::SHIFT, Stop::RailCommunities),
             ] {
                 ctx.memory_mut(|memory| memory.request_focus(row));
                 frame_sized(&mut app, &ctx, 780.0, vec![key(egui::Key::Tab, modifiers)]);
@@ -10325,6 +10383,7 @@ mod tests {
                 "{page}: one button hides or shows the list"
             );
             if page == "nosidebar" {
+                // The chat list is gone, but the navigation rail stays.
                 assert_eq!(
                     controls.iter().map(|(stop, _)| *stop).collect::<Vec<_>>(),
                     [
@@ -10333,7 +10392,12 @@ mod tests {
                         Stop::Attach,
                         Stop::Emoji,
                         Stop::ChatSearch,
-                        Stop::Sidebar
+                        Stop::Sidebar,
+                        Stop::Settings,
+                        Stop::RailChats,
+                        Stop::RailStatus,
+                        Stop::RailChannels,
+                        Stop::RailCommunities
                     ]
                 );
             }
@@ -10480,7 +10544,7 @@ mod tests {
         render(&mut app, &ctx);
         let texture = ctx
             .data_mut(|data| {
-                data.get_temp::<egui::TextureHandle>(egui::Id::new(("zapfast-mark", 44_usize)))
+                data.get_temp::<egui::TextureHandle>(egui::Id::new(("wavo-mark", 44_usize)))
             })
             .expect("the mark was drawn at 44 pixels");
         assert_eq!(texture.size(), [44, 44]);
@@ -10661,7 +10725,7 @@ mod tests {
 
     impl egui::load::ImageLoader for CountingImages {
         fn id(&self) -> &str {
-            "zapfast::demo::tests::CountingImages"
+            "wavo::demo::tests::CountingImages"
         }
 
         fn load(
@@ -10786,7 +10850,7 @@ mod tests {
         );
     }
 
-    /// A video sent before ZapFast made thumbnails has none. With its file
+    /// A video sent before WAVO made thumbnails has none. With its file
     /// here it still shows as a video; only without either is it a file card.
     #[test]
     fn a_video_without_a_thumbnail_shows_from_its_file() {

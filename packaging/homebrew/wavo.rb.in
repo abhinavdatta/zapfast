@@ -1,0 +1,16 @@
+cask "wavo" do
+  version "@VERSION@"
+  sha256 "@MACOS_SHA256@"
+
+  url "https://github.com/abhinavdatta/wavo/releases/download/v#{version}/wavo-v#{version}-macos-universal.dmg"
+  name "WAVO"
+  desc "Native WhatsApp client"
+  homepage "https://wavo.rocks"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  app "WAVO.app"
+end

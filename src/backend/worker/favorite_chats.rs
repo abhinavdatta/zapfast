@@ -7,7 +7,7 @@
 //! capped backoff, and never before the phone's list is known: sending first
 //! would overwrite favorites this computer has not seen yet.
 //!
-//! The phone's list may have arrived before ZapFast read it, and a phone that
+//! The phone's list may have arrived before WAVO read it, and a phone that
 //! never had favorites sends no update at all, so the first connection reads
 //! RegularHigh once as a snapshot. Its completion travels on the same queue as
 //! the replayed mutations: once it arrives, a list the phone had would already

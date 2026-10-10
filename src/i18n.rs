@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 include!(concat!(env!("OUT_DIR"), "/catalogs.rs"));
 
-/// The interface languages ZapFast knows about.
+/// The interface languages WAVO knows about.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Locale {
     #[default]

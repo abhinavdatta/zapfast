@@ -2,13 +2,13 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use zapfast::{app, backend, paths, settings, single_instance};
+use wavo::{app, backend, paths, settings, single_instance};
 
 use clap::Parser;
 
 /// A fast, native WhatsApp client.
 #[derive(Debug, Parser)]
-#[command(name = "zapfast", version, about)]
+#[command(name = "wavo", version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Control>,
@@ -16,7 +16,7 @@ struct Cli {
     #[arg(short, long)]
     verbose: bool,
     /// Start in the tray without opening a window, when the tray is available
-    /// and ZapFast keeps running in the background. For login autostart.
+    /// and WAVO keeps running in the background. For login autostart.
     #[arg(long)]
     start_hidden: bool,
 
@@ -48,7 +48,7 @@ struct Cli {
         requires = "demo_tour",
         value_name = "NAME",
         default_value = "launch",
-        value_parser = clap::builder::PossibleValuesParser::new(zapfast::demo::tour::Script::NAMES),
+        value_parser = clap::builder::PossibleValuesParser::new(wavo::demo::tour::Script::NAMES),
     )]
     demo_tour_script: String,
 
@@ -102,7 +102,7 @@ struct Cli {
 
 #[derive(Debug, clap::Subcommand)]
 enum Control {
-    /// Reload palettes in an already-running ZapFast without showing its window.
+    /// Reload palettes in an already-running WAVO without showing its window.
     ReloadThemes,
 }
 
@@ -118,9 +118,9 @@ enum Control {
 /// hiding real clipboard failures (`arboard=error`) or any other warning.
 fn default_log_filter(verbose: bool) -> &'static str {
     if verbose {
-        "info,zapfast=debug,whatsapp_rust=debug,wacore=debug"
+        "info,wavo=debug,whatsapp_rust=debug,wacore=debug"
     } else {
-        "warn,zapfast=info,fastframe_fonts=info,arboard=error"
+        "warn,wavo=info,fastframe_fonts=info,arboard=error"
     }
 }
 
@@ -140,7 +140,7 @@ fn run() -> eframe::Result<()> {
     // First, before parsing the command line or touching any state: run the
     // update helper when asked (`--apply-update <job>`, then exit), and take
     // `--update-receipt` and `--update-error` off the command line.
-    let launch = fastframe_update::intercept(&zapfast::updates::CONFIG);
+    let launch = fastframe_update::intercept(&wavo::updates::CONFIG);
     let cli = Cli::parse_from(&launch.arguments);
     let discovered = paths::AppDirs::discover();
     if matches!(cli.command, Some(Control::ReloadThemes)) {
@@ -150,9 +150,9 @@ fn run() -> eframe::Result<()> {
                 error.kind(),
                 ErrorKind::NotFound | ErrorKind::ConnectionRefused
             ) {
-                eprintln!("ZapFast is not running, so there are no themes to reload.");
+                eprintln!("WAVO is not running, so there are no themes to reload.");
             } else {
-                eprintln!("Could not reach the running ZapFast: {error}");
+                eprintln!("Could not reach the running WAVO: {error}");
             }
             std::process::exit(1);
         }
@@ -172,25 +172,25 @@ fn run() -> eframe::Result<()> {
         match single_instance::acquire(&discovered.runtime, &waker, verb) {
             single_instance::Outcome::Only(guard) => Some(guard),
             single_instance::Outcome::Surfaced if cli.start_hidden => {
-                eprintln!("ZapFast is already running");
+                eprintln!("WAVO is already running");
                 return Ok(());
             }
             single_instance::Outcome::Surfaced => {
-                eprintln!("ZapFast or FastsApp is already running; asked it to show its window");
+                eprintln!("WAVO or FastsApp is already running; asked it to show its window");
                 return Ok(());
             }
             single_instance::Outcome::Unanswered => {
-                eprintln!("ZapFast is already running but did not answer");
+                eprintln!("WAVO is already running but did not answer");
                 return Ok(());
             }
         }
     };
     let default_filter = default_log_filter(cli.verbose);
-    // A demo must not create empty ZapFast directories that would prevent a
+    // A demo must not create empty WAVO directories that would prevent a
     // later real launch from adopting the existing FastsApp session.
     let dirs = if demo {
         paths::AppDirs::under(&std::env::temp_dir().join(format!(
-            "zapfast-demo-{}-{}",
+            "wavo-demo-{}-{}",
             std::process::id(),
             jiff::Timestamp::now().as_millisecond(),
         )))
@@ -205,7 +205,7 @@ fn run() -> eframe::Result<()> {
     // directories have been created and secured successfully.
     dirs.ensure()
         .map_err(|error| eframe::Error::AppCreation(error.into()))?;
-    let logging = fastframe_log::Logging::new("zapfast", env!("CARGO_PKG_VERSION"))
+    let logging = fastframe_log::Logging::new("wavo", env!("CARGO_PKG_VERSION"))
         .filter(default_filter)
         .panic_log(dirs.panic_log())
         .redact(redact_protocol);
@@ -246,8 +246,8 @@ fn run() -> eframe::Result<()> {
     }
     #[cfg(feature = "demo")]
     if demo {
-        zapfast::demo::populate(&mut app);
-        zapfast::demo::apply_flags(&mut app, cli.demo_page.as_deref());
+        wavo::demo::populate(&mut app);
+        wavo::demo::apply_flags(&mut app, cli.demo_page.as_deref());
         if cli.demo_tour {
             tour_script(&cli.demo_tour_script).prepare(&mut app);
         }
@@ -277,27 +277,27 @@ fn run() -> eframe::Result<()> {
             let shot = shot.clone();
             #[cfg(feature = "demo")]
             let tour = cli.demo_tour.then(|| {
-                zapfast::demo::tour::Tour::scripted(
+                wavo::demo::tour::Tour::scripted(
                     tour_script(&cli.demo_tour_script),
                     cli.demo_tour_delay.map(std::time::Duration::from_millis),
                     cli.demo_tour_events.clone(),
                     cli.demo_tour_frames
                         .clone()
-                        .map(|dir| zapfast::demo::tour::Capture {
+                        .map(|dir| wavo::demo::tour::Capture {
                             dir,
                             fps: cli.demo_fps.unwrap_or(30),
                         }),
                 )
             });
             eframe::run_native(
-                "ZapFast",
+                "WAVO",
                 native_options(demo_persistence.clone()),
                 Box::new(move |cc| {
                     let mut app = lease.take(&cc.egui_ctx);
                     app.attach(&cc.egui_ctx);
                     #[cfg(feature = "demo")]
                     if cli.demo_macos {
-                        zapfast::theme::preview_macos(&cc.egui_ctx);
+                        wavo::theme::preview_macos(&cc.egui_ctx);
                     }
                     Ok(Box::new(Shell {
                         app,
@@ -330,19 +330,19 @@ fn is_graphics_failure(error: &eframe::Error) -> bool {
     )
 }
 
-/// The text of the dialog shown when ZapFast cannot start, kept apart from
+/// The text of the dialog shown when WAVO cannot start, kept apart from
 /// the dialog so it is tested on every platform.
 #[cfg(any(windows, test))]
 fn startup_failure_text(graphics: bool, details: &str, log: &std::path::Path) -> String {
     let summary = if graphics {
-        "ZapFast could not start because the graphics driver does not offer \
-         OpenGL 2.1 or newer, which ZapFast needs to draw its window.\n\n\
+        "WAVO could not start because the graphics driver does not offer \
+         OpenGL 2.1 or newer, which WAVO needs to draw its window.\n\n\
          Install the current driver from the maker of the graphics chip \
          (Intel, AMD or NVIDIA). The Microsoft Basic Display Adapter, some \
          virtual machines and some remote desktop sessions offer no usable \
          OpenGL."
     } else {
-        "ZapFast could not start."
+        "WAVO could not start."
     };
     format!(
         "{summary}\n\nDetails: {details}\n\nThe log may say more: {}",
@@ -365,7 +365,7 @@ fn startup_failure_dialog(error: &eframe::Error) {
         &paths::AppDirs::discover().log_file(),
     );
     let wide = |text: &str| text.encode_utf16().chain([0]).collect::<Vec<u16>>();
-    let (text, caption) = (wide(&text), wide("ZapFast"));
+    let (text, caption) = (wide(&text), wide("WAVO"));
     // SAFETY: both strings are NUL-terminated and outlive the call.
     unsafe {
         MessageBoxW(
@@ -383,7 +383,7 @@ fn redact_protocol(
     record: &log::Record<'_>,
     message: &str,
 ) -> Option<std::borrow::Cow<'static, str>> {
-    use zapfast::diagnostics::{is_protocol_target, protocol_summary};
+    use wavo::diagnostics::{is_protocol_target, protocol_summary};
     (is_protocol_target(record.target())
         || is_protocol_target(record.module_path().unwrap_or_default()))
     .then(|| protocol_summary(message))
@@ -400,19 +400,19 @@ fn demo_size_arg() -> Option<[f32; 2]> {
 
 /// The tour `--demo-tour-script` names; clap has already checked the name.
 #[cfg(feature = "demo")]
-fn tour_script(name: &str) -> zapfast::demo::tour::Script {
-    zapfast::demo::tour::Script::from_name(name).unwrap_or_default()
+fn tour_script(name: &str) -> wavo::demo::tour::Script {
+    wavo::demo::tour::Script::from_name(name).unwrap_or_default()
 }
 
 fn native_options(demo_persistence: Option<std::path::PathBuf>) -> eframe::NativeOptions {
     let demo_size = demo_size_arg().unwrap_or([1180.0, 780.0]);
     let demo = demo_persistence.is_some();
     let viewport = egui::ViewportBuilder::default()
-        .with_title(if demo { "ZapFast Demo" } else { "ZapFast" })
+        .with_title(if demo { "WAVO Demo" } else { "WAVO" })
         .with_app_id(if demo {
-            "zapfast-demo".to_owned()
+            "wavo-demo".to_owned()
         } else {
-            std::env::var("FLATPAK_ID").unwrap_or_else(|_| "zapfast".to_owned())
+            std::env::var("FLATPAK_ID").unwrap_or_else(|_| "wavo".to_owned())
         })
         .with_inner_size(demo_size)
         // Keep the floor small enough that Windows can still snap the window
@@ -442,11 +442,11 @@ struct Shell {
     app: fastframe_shell::Held<app::App>,
     /// This window's unread overlay on its taskbar button.
     #[cfg(target_os = "windows")]
-    taskbar: zapfast::notify::Taskbar,
+    taskbar: wavo::notify::Taskbar,
     #[cfg(feature = "demo")]
     shot: Option<Shot>,
     #[cfg(feature = "demo")]
-    tour: Option<zapfast::demo::tour::Tour>,
+    tour: Option<wavo::demo::tour::Tour>,
     #[cfg(feature = "demo")]
     hover: Option<egui::Pos2>,
 }
@@ -539,7 +539,7 @@ impl eframe::App for Shell {
         // The chat header is 60 points and zooms; the linking screen keeps
         // AppKit's own 28-point strip.
         let title_bar = if app.is_linked() && !app.app_lock.is_locked() {
-            zapfast::theme::TOP_BAR_HEIGHT
+            wavo::theme::TOP_BAR_HEIGHT
         } else {
             28.0 / ctx.zoom_factor()
         };
@@ -611,7 +611,7 @@ fn app_icon() -> egui::IconData {
     {
         const SIZE: usize = 128;
         egui::IconData {
-            rgba: zapfast::util::app_icon_rgba(SIZE),
+            rgba: wavo::util::app_icon_rgba(SIZE),
             width: SIZE as u32,
             height: SIZE as u32,
         }
@@ -624,25 +624,25 @@ mod tests {
 
     #[test]
     fn tour_cli_accepts_manual_and_delayed_starts() {
-        let cli = Cli::try_parse_from(["zapfast", "--demo-tour"]).unwrap();
+        let cli = Cli::try_parse_from(["wavo", "--demo-tour"]).unwrap();
         assert!(cli.demo_tour);
         assert!(cli.demo_tour_delay.is_none());
         let cli =
-            Cli::try_parse_from(["zapfast", "--demo-tour", "--demo-tour-delay", "5000"]).unwrap();
+            Cli::try_parse_from(["wavo", "--demo-tour", "--demo-tour-delay", "5000"]).unwrap();
         assert_eq!(cli.demo_tour_delay, Some(5000));
-        assert!(Cli::try_parse_from(["zapfast", "--demo-tour-delay", "5000"]).is_err());
-        assert!(Cli::try_parse_from(["zapfast", "--demo-tour", "--demo-page", "login",]).is_err());
+        assert!(Cli::try_parse_from(["wavo", "--demo-tour-delay", "5000"]).is_err());
+        assert!(Cli::try_parse_from(["wavo", "--demo-tour", "--demo-page", "login",]).is_err());
     }
 
     #[test]
     fn tour_cli_picks_a_script_and_a_frame_capture() {
-        let cli = Cli::try_parse_from(["zapfast", "--demo-tour"]).unwrap();
+        let cli = Cli::try_parse_from(["wavo", "--demo-tour"]).unwrap();
         assert_eq!(
             tour_script(&cli.demo_tour_script),
-            zapfast::demo::tour::Script::Launch
+            wavo::demo::tour::Script::Launch
         );
         let cli = Cli::try_parse_from([
-            "zapfast",
+            "wavo",
             "--demo-tour",
             "--demo-tour-script",
             "whats-new",
@@ -654,7 +654,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             tour_script(&cli.demo_tour_script),
-            zapfast::demo::tour::Script::WhatsNew
+            wavo::demo::tour::Script::WhatsNew
         );
         assert_eq!(
             cli.demo_tour_frames.as_deref(),
@@ -662,13 +662,13 @@ mod tests {
         );
         assert_eq!(cli.demo_fps, Some(60));
         assert!(
-            Cli::try_parse_from(["zapfast", "--demo-tour", "--demo-tour-script", "other"]).is_err()
+            Cli::try_parse_from(["wavo", "--demo-tour", "--demo-tour-script", "other"]).is_err()
         );
-        assert!(Cli::try_parse_from(["zapfast", "--demo-tour-script", "whats-new"]).is_err());
-        assert!(Cli::try_parse_from(["zapfast", "--demo-tour", "--demo-fps", "30"]).is_err());
+        assert!(Cli::try_parse_from(["wavo", "--demo-tour-script", "whats-new"]).is_err());
+        assert!(Cli::try_parse_from(["wavo", "--demo-tour", "--demo-fps", "30"]).is_err());
         assert!(
             Cli::try_parse_from([
-                "zapfast",
+                "wavo",
                 "--demo-tour",
                 "--demo-tour-frames",
                 "frames",
@@ -686,7 +686,7 @@ mod startup_failure_tests {
 
     #[test]
     fn a_graphics_failure_names_the_driver_requirement_and_the_details() {
-        let log = std::path::Path::new("C:/zapfast/zapfast.log");
+        let log = std::path::Path::new("C:/wavo/wavo.log");
         let text = startup_failure_text(
             true,
             "glutin error: extension to create ES context with wgl is not present",
@@ -703,9 +703,9 @@ mod startup_failure_tests {
         let text = startup_failure_text(
             false,
             "The directory is not writable",
-            std::path::Path::new("zapfast.log"),
+            std::path::Path::new("wavo.log"),
         );
-        assert!(text.starts_with("ZapFast could not start."));
+        assert!(text.starts_with("WAVO could not start."));
         assert!(!text.contains("OpenGL"));
         assert!(text.contains("The directory is not writable"));
     }
@@ -742,11 +742,7 @@ mod log_filter_tests {
             log::Level::Error,
             "arboard::platform::linux"
         ));
-        assert!(matches(
-            filter,
-            log::Level::Warn,
-            "zapfast::backend::worker"
-        ));
+        assert!(matches(filter, log::Level::Warn, "wavo::backend::worker"));
     }
 
     /// Every log names the face chosen for each fallback script, without

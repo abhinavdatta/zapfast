@@ -1,14 +1,14 @@
-# Brazilian Portuguese translation of the ZapFast navigation pilot.
-# Distributed under the same MIT license as ZapFast.
+# Brazilian Portuguese translation of the WAVO navigation pilot.
+# Distributed under the same MIT license as WAVO.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: ZapFast\n"
-"Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
+"Project-Id-Version: WAVO\n"
+"Report-Msgid-Bugs-To: https://github.com/abhinavdatta/wavo/issues/new?"
 "template=translation.yml\n"
 "POT-Creation-Date: 2026-10-03 17:10+0200\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
-"Last-Translator: ZapFast contributors\n"
+"Last-Translator: WAVO contributors\n"
 "Language-Team: Brazilian Portuguese\n"
 "Language: pt_BR\n"
 "MIME-Version: 1.0\n"
@@ -223,8 +223,8 @@ msgid "You left this channel"
 msgstr "Você saiu deste canal"
 
 #: src/ui/conversation.rs:822
-msgid "Channels are read-only in ZapFast"
-msgstr "Os canais são somente leitura no ZapFast"
+msgid "Channels are read-only in WAVO"
+msgstr "Os canais são somente leitura no WAVO"
 
 #: src/ui/conversation.rs:851
 msgid "You left this group"
@@ -694,10 +694,10 @@ msgstr "Mostrar quando você está digitando"
 
 #: src/ui/settings.rs:502
 msgid ""
-"Could not load your account privacy. Trying again when ZapFast reconnects."
+"Could not load your account privacy. Trying again when WAVO reconnects."
 msgstr ""
 "Não foi possível carregar a privacidade da sua conta. Nova tentativa quando "
-"o ZapFast reconectar."
+"o WAVO reconectar."
 
 #: src/ui/settings.rs:507
 msgid "Connect to WhatsApp to change your account privacy."
@@ -736,8 +736,8 @@ msgid "Check for updates"
 msgstr "Verificar atualizações"
 
 #: src/ui/settings.rs:590
-msgid "Asks GitHub once a day, sending only the ZapFast version."
-msgstr "Consulta o GitHub uma vez por dia, enviando só a versão do ZapFast."
+msgid "Asks GitHub once a day, sending only the WAVO version."
+msgstr "Consulta o GitHub uma vez por dia, enviando só a versão do WAVO."
 
 #: src/ui/settings.rs:595
 msgid "Download updates automatically"
@@ -746,10 +746,10 @@ msgstr "Baixar atualizações automaticamente"
 #: src/ui/settings.rs:598
 msgid ""
 "You still choose when to restart. Package managers and Flatpak update "
-"ZapFast themselves."
+"WAVO themselves."
 msgstr ""
 "Você escolhe quando reiniciar. Gerenciadores de pacotes e o Flatpak "
-"atualizam o ZapFast por conta própria."
+"atualizam o WAVO por conta própria."
 
 #: src/ui/settings.rs:611
 #, rust-format
@@ -881,7 +881,7 @@ msgstr "Trancadas"
 
 #: src/ui/settings.rs:827
 msgid ""
-"Time without using ZapFast, also counted while it is in the tray. "
+"Time without using WAVO, also counted while it is in the tray. "
 "Ctrl+Shift+L locks it at once."
 msgstr ""
 
@@ -1108,8 +1108,8 @@ msgid "Could not use this image"
 msgstr "Não foi possível usar esta imagem"
 
 #: src/app.rs:3276
-msgid "Not sent: ZapFast is not connected to WhatsApp."
-msgstr "Não enviado: o ZapFast não está conectado ao WhatsApp."
+msgid "Not sent: WAVO is not connected to WhatsApp."
+msgstr "Não enviado: o WAVO não está conectado ao WhatsApp."
 
 #: src/app.rs:3280
 msgid ""
@@ -1129,8 +1129,8 @@ msgstr "Enviando o pacote de figurinhas…"
 
 #: src/app.rs:5154 src/ui/labels.rs:253
 #, rust-format
-msgid "You have {limit} labels, the most ZapFast keeps."
-msgstr "Você tem {limit} etiquetas, o máximo que o ZapFast guarda."
+msgid "You have {limit} labels, the most WAVO keeps."
+msgstr "Você tem {limit} etiquetas, o máximo que o WAVO guarda."
 
 #: src/app.rs:5834
 msgid "App lock password saved"
@@ -1493,7 +1493,7 @@ msgid "Open in another app"
 msgstr "Abrir em outro aplicativo"
 
 #: src/ui/lock.rs:17
-msgid "ZapFast is locked"
+msgid "WAVO is locked"
 msgstr ""
 
 #: src/ui/lock.rs:23

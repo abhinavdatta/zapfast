@@ -3,7 +3,7 @@
 //! The crate checks for a newer release, refuses package-managed copies,
 //! downloads and verifies the update against the publisher signature, and
 //! hands it to a helper that installs it and rolls back if it does not start.
-//! ZapFast keeps its names, its key, its proxy and its interface.
+//! WAVO keeps its names, its key, its proxy and its interface.
 
 pub use fastframe_update::{
     CHECK_INTERVAL, DownloadState, Installation, Kind, Prepared, Release, Source, Unsupported,
@@ -11,25 +11,24 @@ pub use fastframe_update::{
 };
 use fastframe_update::{MacConfig, ReqwestTransport, UpdateConfig};
 
-/// ZapFast's releases and the names its installations have had.
+/// WAVO's releases and the names its installations have had.
 pub const CONFIG: UpdateConfig = UpdateConfig {
     // Cask and bundle names from before the rename. This also accepts
-    // fastsapp-* marker files and `fastsapp <version>` answers, which no
-    // release produces.
-    legacy_names: &["fastsapp"],
+    // fastsapp-* and zapfast-* marker files and their version answers.
+    legacy_names: &["zapfast", "fastsapp"],
     macos: MacConfig {
         bundle_ids: &["me.paolino.fastsapp"],
         executable_names: &[],
-        legacy_bundle_names: &["FastsApp.app"],
+        legacy_bundle_names: &["ZapFast.app", "FastsApp.app"],
     },
     publisher_key: Some(include_str!("../assets/update-public-key.hex")),
     // The next release key, backed up outside GitHub. Releases stay signed
     // with the current key until installs trust this one too.
     additional_publisher_keys: &[include_str!("../assets/update-public-key-next.hex")],
     ..UpdateConfig::new(
-        "abhinavdatta/zapfast",
-        "ZapFast",
-        "zapfast",
+        "abhinavdatta/wavo",
+        "WAVO",
+        "wavo",
         env!("CARGO_PKG_VERSION"),
     )
 };
@@ -51,7 +50,7 @@ mod tests {
     fn update_config_is_valid() {
         CONFIG.validate().unwrap();
         assert_eq!(CONFIG.current_version, env!("CARGO_PKG_VERSION"));
-        assert_eq!(CONFIG.slug, "zapfast");
+        assert_eq!(CONFIG.slug, "wavo");
     }
 
     #[test]

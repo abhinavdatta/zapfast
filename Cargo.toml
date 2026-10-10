@@ -1,21 +1,21 @@
 [package]
-name = "zapfast"
+name = "wavo"
 version = "0.19.2"
 edition = "2024"
 rust-version = "1.98"
 license = "MIT"
 description = "A native WhatsApp client built with Rust and egui"
-homepage = "https://zapfast.rocks"
-repository = "https://github.com/crmne/zapfast"
+homepage = "https://github.com/abhinavdatta/wavo"
+repository = "https://github.com/abhinavdatta/wavo"
 keywords = ["whatsapp", "chat", "egui", "messaging"]
 categories = ["gui"]
 
 [lib]
-name = "zapfast"
+name = "wavo"
 path = "src/lib.rs"
 
 [[bin]]
-name = "zapfast"
+name = "wavo"
 path = "src/main.rs"
 
 [dependencies]
@@ -46,6 +46,9 @@ egui_extras = { version = "0.36", features = ["file", "image", "svg", "webp", "g
 skrifa = "0.44"
 # Decodes JPEG, PNG, WebP, and GIF images.
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
+# Renders PDF pages in the built-in viewer. Binds to a Pdfium library at
+# runtime; machines without one keep opening PDFs in their desktop app.
+libloading = "0.8"
 # WhatsApp Web protocol: pairing, encryption, history sync, and media. Version
 # 0.7.0 on crates.io enables `simd`, which needs nightly Rust. This commit builds
 # on stable and includes snapshot recovery and no-progress conflict handling
@@ -139,9 +142,9 @@ fastframe-theme = { git = "https://github.com/crmne/fastframe", tag = "v0.4.1" }
 fastframe-log = { git = "https://github.com/crmne/fastframe", tag = "v0.4.1" }
 # The tray item: StatusNotifier on Linux, tray-icon on Windows and macOS.
 fastframe-tray = { git = "https://github.com/crmne/fastframe", tag = "v0.4.1" }
-# Keeps ZapFast running without a window and recovers off-screen windows.
+# Keeps WAVO running without a window and recovers off-screen windows.
 fastframe-shell = { git = "https://github.com/crmne/fastframe", tag = "v0.4.1" }
-# Centres the macOS traffic lights on ZapFast's own header.
+# Centres the macOS traffic lights on WAVO's own header.
 fastframe-macos = { git = "https://github.com/crmne/fastframe", tag = "v0.4.1" }
 # One running copy per user: the lock, and the channel a second launch uses.
 fastframe-instance = { git = "https://github.com/crmne/fastframe", tag = "v0.4.1" }
@@ -152,7 +155,7 @@ fastframe-update = { git = "https://github.com/crmne/fastframe", tag = "v0.4.1",
 
 [patch.crates-io]
 # crmne/egui apps-0.36, shared with Spotifast, RekordFlash and TonePush: egui
-# 0.36.1 with right-to-left shaping and glyph clusters from crmne/zapfast#144
+# 0.36.1 with right-to-left shaping and glyph clusters from crmne/wavo#144
 # and digits shaped left to right in text without right-to-left letters (#184)
 # (emilk/egui#8577), egui's busy-loop fix (emilk/egui#8398), and eframe pacing
 # Wayland frames by the compositor's frame callbacks so a window the

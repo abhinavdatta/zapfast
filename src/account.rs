@@ -11,10 +11,18 @@ use std::time::Instant;
 use crate::app::{ComposerMention, Conversation};
 use crate::backend::{Backend, LinkStatus, Waker};
 use crate::model::{
-    AccountId, Chat, ChatFilter, ChatId, Contact, Label, Message, PollDraft, StickerPack,
+    AccountId, Chat, ChatFilter, ChatId, Contact, Label, Message, PollDraft, StatusEntry,
+    StickerPack,
 };
 use crate::paths::{AccountDirs, AppDirs};
 use crate::settings::AccountSettings;
+
+/// The status story being played on the Status page.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StatusStory {
+    pub author: String,
+    pub index: usize,
+}
 
 /// One WhatsApp account's runtime state.
 pub struct Account {
@@ -73,6 +81,11 @@ pub struct Account {
     pub(crate) reported_online: Option<bool>,
     /// Chats this account may pin; WhatsApp Plus raises it once known.
     pub pin_limit: usize,
+    /// When the Status page was last read; updates newer than this show
+    /// an unseen ring.
+    pub status_seen_at: Option<i64>,
+    /// The status story being played: its author and update index.
+    pub status_story: Option<StatusStory>,
 }
 
 impl Account {
@@ -138,6 +151,8 @@ impl Account {
             group_saving: HashSet::new(),
             reported_online: None,
             pin_limit: crate::backend::PINNED_CHATS,
+            status_seen_at: None,
+            status_story: None,
         }
     }
 
@@ -236,6 +251,139 @@ impl Account {
 
     pub fn mark_settings_dirty(&mut self) {
         self.settings_dirty = true;
+    }
+
+    /// Opens one author's story on the Status page.
+    pub fn open_story(&mut self, author: String) {
+        self.status_story = Some(StatusStory { author, index: 0 });
+    }
+
+    /// Moves within the open story.
+    pub fn status_story_index(&mut self, index: usize) {
+        if let Some(story) = &mut self.status_story {
+            story.index = index;
+        }
+    }
+
+    /// How many updates the open story has. Zero when no story is open.
+    pub fn status_story_len(&self) -> usize {
+        self.status_story
+            .as_ref()
+            .map(|story| self.status_messages(&story.author).len())
+            .unwrap_or(0)
+    }
+
+    /// Steps to the previous or next update, closing the story at the edges
+    /// like WhatsApp does.
+    pub fn step_story(&mut self, step: i32) {
+        let count = self.status_story_len();
+        let Some(story) = &mut self.status_story else {
+            return;
+        };
+        let next = story.index as i64 + i64::from(step);
+        // Stepping past either edge closes the story and reads it, like
+        // swiping past the last update on the phone.
+        if (0..count as i64).contains(&next) {
+            story.index = next as usize;
+        } else {
+            self.status_story = None;
+            self.status_seen_at = Some(crate::util::now());
+        }
+    }
+
+    /// Closes the open story, marking the updates read.
+    pub fn close_story(&mut self) {
+        self.status_story = None;
+        self.status_seen_at = Some(crate::util::now());
+    }
+
+    /// One story per author with updates in the status round-up chat.
+    /// Includes own posted statuses, newest story first.
+    pub fn status_entries(&self) -> Vec<StatusEntry> {
+        let mut order: Vec<String> = Vec::new();
+        let mut entries: HashMap<String, StatusEntry> = HashMap::new();
+        if let Some(conversation) = self.conversations.get(crate::model::STATUS_BROADCAST_ID) {
+            for message in &conversation.messages {
+                let author = if message.from_me {
+                    match self.me.as_deref() {
+                        Some(me) => me.to_owned(),
+                        None => continue,
+                    }
+                } else {
+                    message.sender.clone()
+                };
+                let seen = self
+                    .status_seen_at
+                    .is_some_and(|seen| message.timestamp <= seen)
+                    || message.from_me;
+                match entries.get_mut(&author) {
+                    Some(entry) => {
+                        entry.timestamp = entry.timestamp.max(message.timestamp);
+                        entry.seen &= seen;
+                    }
+                    None => {
+                        order.push(author.clone());
+                        entries.insert(
+                            author.clone(),
+                            StatusEntry {
+                                id: author,
+                                name: None,
+                                timestamp: message.timestamp,
+                                seen,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+        let mut list: Vec<StatusEntry> = order
+            .into_iter()
+            .filter_map(|id| entries.remove(&id))
+            .map(|mut entry| {
+                entry.name = self
+                    .contacts
+                    .get(&entry.id)
+                    .and_then(|contact| contact.display_name())
+                    .map(str::to_owned)
+                    .or(self
+                        .conversations
+                        .get(crate::model::STATUS_BROADCAST_ID)
+                        .and_then(|conversation| {
+                            conversation
+                                .messages
+                                .iter()
+                                .find(|message| message.sender == entry.id)
+                                .and_then(|message| message.sender_name.clone())
+                        }))
+                    .or_else(|| {
+                        (entry.id == self.me.as_deref().unwrap_or_default())
+                            .then(|| "You".to_owned())
+                    });
+                entry
+            })
+            .collect();
+        list.sort_by_key(|entry| std::cmp::Reverse(entry.timestamp));
+        list
+    }
+
+    /// One author's status updates, oldest first, for the story viewer.
+    pub fn status_messages(&self, author: &str) -> Vec<&Message> {
+        self.conversations
+            .get(crate::model::STATUS_BROADCAST_ID)
+            .map(|conversation| {
+                conversation
+                    .messages
+                    .iter()
+                    .filter(|message| {
+                        if message.from_me {
+                            self.me.as_deref() == Some(author)
+                        } else {
+                            message.sender == author
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     pub fn save_settings(&mut self) {

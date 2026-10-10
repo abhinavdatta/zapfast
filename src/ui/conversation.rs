@@ -30,7 +30,7 @@ const RUN_GAP: f32 = 5.0;
 /// Footer label on an outgoing message that failed to send.
 const NOT_SENT: &str = "Not sent";
 const NOT_SENT_HINT: &str =
-    "This message could not be sent, and ZapFast will not retry it. Send it again yourself.";
+    "This message could not be sent, and WAVO will not retry it. Send it again yourself.";
 
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let Some(chat) = app.current_chat().cloned() else {
@@ -81,7 +81,7 @@ fn empty(app: &mut App, ui: &mut egui::Ui) {
     ui.painter().text(
         center,
         Align2::CENTER_CENTER,
-        "ZapFast",
+        "WAVO",
         theme::bold(24.0),
         palette.text,
     );
@@ -819,7 +819,7 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                             } else {
                                 crate::i18n::gettext(
                                     app.locale,
-                                    "Channels are read-only in ZapFast",
+                                    "Channels are read-only in WAVO",
                                 )
                             }
                             .as_ref(),
@@ -831,7 +831,7 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                 }
                 if chat.locked {
                     ui.vertical_centered(|ui| {
-                        theme::text(ui, "Locked chats are read-only in ZapFast", theme::regular(13.5), palette.secondary);
+                        theme::text(ui, "Locked chats are read-only in WAVO", theme::regular(13.5), palette.secondary);
                     });
                     return;
                 }
@@ -2719,6 +2719,47 @@ fn reaction_affordance(
     }
 }
 
+/// Draws one status update in the Status page's story viewer, laid out like
+/// a chat bubble in the conversation, but centred on the page instead.
+pub fn draw_story_message(ui: &mut egui::Ui, app: &mut App, message: &Message) {
+    let palette = app.palette;
+    let chat = crate::model::Chat::new(crate::model::STATUS_BROADCAST_ID.into(), "Status".into());
+    let names_or = |id: &str, hint: Option<&str>| app.display_name_or(id, hint);
+    let mention_names = |id: &str| app.mention_name(id);
+    let keyboard_navigation = std::cell::Cell::new(false);
+    let avatars = HashMap::new();
+    let view = View {
+        palette,
+        locale: app.locale,
+        chat: &chat,
+        me: app.me.as_deref(),
+        auto_download: true,
+        connected: app.link.is_connected(),
+        poll_voting: &app.poll_voting,
+        interactive_pending: &app.interactive_sending,
+        anchor: None,
+        open_menu: None,
+        reaction: None,
+        reaction_menu: false,
+        reaction_emoji: &app.settings.reaction_emoji,
+        keyboard_navigation: &keyboard_navigation,
+        names_or: &names_or,
+        mention_names: &mention_names,
+        avatars: &avatars,
+        contacts: &app.contacts,
+        now: crate::util::now(),
+        animate: app.window_focused,
+        player: &app.player,
+        video: &app.video,
+        copy_rows: app.copy_rows.as_ref(),
+    };
+    let mut actions = Vec::new();
+    bubble(ui, &view, message, false, false, &mut actions);
+    for action in actions {
+        app.actions.push(action);
+    }
+}
+
 /// Draws a message row and returns its bubble response for scrolling.
 fn bubble(
     ui: &mut egui::Ui,
@@ -2858,7 +2899,7 @@ impl SelectionLeash {
 
 impl egui::plugin::Plugin for SelectionLeash {
     fn debug_name(&self) -> &'static str {
-        "zapfast-selection-leash"
+        "wavo-selection-leash"
     }
 
     fn input_hook(&mut self, ctx: &egui::Context, input: &mut egui::RawInput) {
@@ -4109,6 +4150,13 @@ fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: 
     if let Some(media) = message.content.media() {
         match &media.path {
             Some(path) => {
+                let editable_picture = matches!(message.content, Content::Image { .. })
+                    && crate::safety::can_preview_image(path);
+                if editable_picture
+                    && widgets::menu_item(ui, &palette, Some(Icon::Pencil), "Edit photo")
+                {
+                    actions.push(Action::OpenImageEditor(path.clone()));
+                }
                 let open = if matches!(message.content, Content::Video { gif: false, .. }) {
                     crate::i18n::gettext(view.locale, "Open in system player")
                 } else {
@@ -5985,7 +6033,7 @@ fn video(
 ) -> f32 {
     use crate::video::State;
     let palette = view.palette;
-    // A video sent before ZapFast made thumbnails has none; its file is
+    // A video sent before WAVO made thumbnails has none; its file is
     // here, so its first frame stands in. Without either, it is a file card.
     let thumbnail = message.thumbnail.as_deref();
     if thumbnail.is_none() && media.path.is_none() {
@@ -6662,7 +6710,13 @@ fn attachment(
         .on_hover_cursor(egui::CursorIcon::PointingHand);
     if response.clicked() && !auto {
         match &media.path {
-            Some(path) => actions.push(Action::OpenFile(path.clone())),
+            Some(path) => {
+                if icon == Icon::FileText && is_pdf_name(path, title) {
+                    actions.push(Action::PreviewPdf(path.clone()));
+                } else {
+                    actions.push(Action::OpenFile(path.clone()));
+                }
+            }
             None if !matches!(media.state, MediaState::Downloading) => {
                 actions.push(Action::Download {
                     card: None,
@@ -6673,6 +6727,20 @@ fn attachment(
             None => {}
         }
     }
+}
+
+/// Whether an attachment is a PDF by its stored path or visible name, so the
+/// built-in viewer can take it instead of the desktop app.
+fn is_pdf_name(path: &std::path::Path, title: &str) -> bool {
+    let pdf = |name: &str| {
+        name.rsplit('.')
+            .next()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"))
+    };
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(pdf)
+        || title.rsplit('.').next().is_some_and(pdf)
 }
 
 /// In-chat voice and audio player.
@@ -7618,6 +7686,27 @@ fn pending_strip(app: &mut App, ui: &mut egui::Ui) {
                                 palette.text,
                             );
                         }
+                    }
+                }
+                // Edit button on staged picture files.
+                if let crate::app::Pending::File(path) = item
+                    && crate::app::Pending::is_picture_file(path)
+                {
+                    let edit = Rect::from_center_size(
+                        rect.left_top() + vec2(10.0, 10.0),
+                        Vec2::splat(18.0),
+                    );
+                    let edit_response =
+                        ui.interact(edit, ui.id().with(("stage-edit", index)), Sense::click());
+                    ui.painter()
+                        .circle_filled(edit.center(), 9.0, palette.overlay);
+                    theme::paint_icon(ui, Icon::Pencil, edit, 11.0, palette.text);
+                    if edit_response
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text("Edit photo before sending")
+                        .clicked()
+                    {
+                        app.actions.push(Action::OpenImageEditor(path.clone()));
                     }
                 }
                 // Remove button in the corner.

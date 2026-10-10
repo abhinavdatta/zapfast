@@ -51,6 +51,9 @@ impl From<&str> for AccountId {
     }
 }
 
+/// The special contact status updates arrive from.
+pub const STATUS_BROADCAST_ID: &str = "status@broadcast";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ChatKind {
@@ -71,7 +74,7 @@ impl ChatKind {
 }
 
 /// A local chat label: a name, a colour, and nothing that leaves this computer.
-/// Not a WhatsApp Business label; ZapFast neither reads nor syncs those.
+/// Not a WhatsApp Business label; WAVO neither reads nor syncs those.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Label {
     pub id: String,
@@ -139,6 +142,9 @@ pub struct Chat {
     /// Distinguishes an actual subject "Group" from older cached placeholders.
     pub group_subject_known: bool,
     pub kind: ChatKind,
+    /// The community parent group this chat belongs to, when it is part of
+    /// one; a parent group points at itself.
+    pub community: Option<ChatId>,
     /// Latest-message Unix timestamp used for ordering.
     pub last_activity: i64,
     pub unread: u32,
@@ -200,6 +206,7 @@ impl Chat {
         Self {
             id,
             name,
+            community: None,
             group_subject_known: false,
             kind,
             last_activity: 0,
@@ -236,6 +243,24 @@ impl Chat {
 
     pub fn is_group(&self) -> bool {
         self.kind == ChatKind::Group
+    }
+
+    /// A status update round-up chat. Its messages are the contact statuses.
+    pub fn is_status(&self) -> bool {
+        self.id == STATUS_BROADCAST_ID
+    }
+
+    /// A community parent group: links topic groups together.
+    pub fn is_community(&self) -> bool {
+        self.community.as_deref() == Some(self.id.as_str())
+    }
+
+    /// The community this subgroup belongs to, when it is not itself.
+    pub fn community_parent(&self) -> Option<&ChatId> {
+        match &self.community {
+            Some(parent) if parent != &self.id => Some(parent),
+            _ => None,
+        }
     }
 
     /// Counted unread, or marked unread with nothing pending.
@@ -308,6 +333,19 @@ pub enum Delivery {
     Read,
     Played,
     Failed,
+}
+
+/// One contact's status updates, derived from `status@broadcast` messages.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StatusEntry {
+    /// Author's canonical id.
+    pub id: String,
+    /// Display name from contacts or the message's push name.
+    pub name: Option<String>,
+    /// Newest update Unix timestamp.
+    pub timestamp: i64,
+    /// Whether every update has been seen.
+    pub seen: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -971,6 +1009,9 @@ impl Contact {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Page {
     Chats,
+    Status,
+    Channels,
+    Communities,
     Settings,
     Wallpaper,
 }
@@ -1082,7 +1123,7 @@ pub struct StickerPack {
     pub name: String,
     pub dir: PathBuf,
     pub stickers: Vec<PathBuf>,
-    /// Put together in ZapFast, so stickers can be filed into it.
+    /// Put together in WAVO, so stickers can be filed into it.
     pub local: bool,
 }
 
@@ -1179,7 +1220,7 @@ pub struct Recipient {
 }
 
 /// Per-recipient receipts for one of our group messages, as far as they are
-/// known. Receipts are only kept from when ZapFast began recording them.
+/// known. Receipts are only kept from when WAVO began recording them.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MessageReceipts {
     pub chat: ChatId,
@@ -1296,6 +1337,8 @@ pub enum Scroll {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
     Open(Page),
+    /// Marks every status update as seen.
+    MarkStatusSeen,
     /// Opens settings, or closes them when they are already showing.
     ToggleSettings,
     OpenChat(ChatId),
@@ -1407,7 +1450,7 @@ pub enum Action {
     SendRecording,
     /// Drops a voice message the worker refused to send.
     DiscardUnsentVoice,
-    /// Opens a downloaded image in ZapFast's native preview. Only the file
+    /// Opens a downloaded image in WAVO's native preview. Only the file
     /// extension and existence are checked here, and anything else opens
     /// externally; an image that then fails to decode shows a message with an
     /// Open externally button inside the preview.
@@ -1420,8 +1463,22 @@ pub enum Action {
     ZoomImageOut,
     FitImage,
     CloseImagePreview,
+    /// Steps backward or forward through the open author's story.
+    StoryPrev,
+    StoryNext,
+    /// Closes the story viewer, marking the updates read.
+    CloseStory,
+    /// Opens a document in WAVO's built-in PDF viewer when the machine
+    /// has a Pdfium library; anything else opens externally.
+    PreviewPdf(PathBuf),
+    /// Shows the given page of the open PDF.
+    PdfPage(usize),
+    ZoomPdfIn,
+    ZoomPdfOut,
+    FitPdf,
+    ClosePdfPreview,
     OpenFile(PathBuf),
-    /// Opens ZapFast's log, or shows it in its folder when no application
+    /// Opens WAVO's log, or shows it in its folder when no application
     /// takes it, and says so when neither works.
     OpenLog(PathBuf),
     OpenFolder(PathBuf),
@@ -1435,6 +1492,18 @@ pub enum Action {
     CopyImage(PathBuf),
     /// Closes the toast at this index. Only errors wait to be dismissed.
     DismissToast(usize),
+    /// Opens the photo editor for a picture on disk, to send the edited
+    /// copy as a new picture.
+    OpenImageEditor(PathBuf),
+    /// Closes the editor without sending.
+    CloseImageEditor,
+    /// Applies a rotate or flip to the edited picture.
+    EditorOp(crate::image_edit::EditOp),
+    /// Steps the edit history back or forward.
+    EditorUndo,
+    EditorRedo,
+    /// Renders the edits and sends the picture to the open chat.
+    EditorSend,
     /// Starts a reply to a message in the open chat.
     Reply(String),
     CancelReply,
@@ -1670,7 +1739,7 @@ pub enum Action {
         kind: crate::privacy::PrivacyKind,
         choice: crate::privacy::PrivacyChoice,
     },
-    /// Registers or removes the login entry that starts ZapFast in the tray.
+    /// Registers or removes the login entry that starts WAVO in the tray.
     SetStartWithSystem(bool),
     /// Sets the sound for mentions and replies to us (`true`) or for
     /// other new messages.
@@ -1737,7 +1806,7 @@ pub enum Action {
     AppLockForm(Option<crate::app_lock::FormMode>),
     /// Submits the Settings password form.
     SubmitAppLockForm,
-    /// How long ZapFast may go unused before it locks.
+    /// How long WAVO may go unused before it locks.
     SetAutoLock(crate::settings::AutoLock),
     Reconnect,
     /// Sets aside an archive whose key is gone and links again.
@@ -1751,6 +1820,21 @@ pub enum Action {
     CloseWindow,
     /// Shows another linked account in the window.
     SwitchAccount(AccountId),
+    /// Opens the profile gate: the Netflix-style profile wall shown at app
+    /// start, which asks each profile's password before showing its chats.
+    ShowProfileGate,
+    /// Picks a profile on the wall. Pinned ones ask for the password first.
+    PickProfile(AccountId),
+    /// Cancels a password ask or leaves the profile wall back to the
+    /// previously shown profile.
+    LeaveProfileGate,
+    /// Asks the profile at the password field to open.
+    SubmitProfilePassword,
+    /// Opens a password form for this profile's opening password in
+    /// Settings, or closes it with `None`.
+    ProfilePinForm(Option<crate::app_lock::FormMode>),
+    /// Submits the Settings form for this profile's opening password.
+    SubmitProfilePinForm,
     /// Starts linking another number beside the ones already here.
     AddAccount,
     /// Leaves an account being added before it was linked.

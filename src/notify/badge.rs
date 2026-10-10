@@ -28,9 +28,9 @@ fn launcher_uri(desktop_file: &str) -> String {
 
 /// The desktop file name for this installation, which is also the app id the
 /// window uses (see `main.rs`). A Flatpak install ships
-/// `rocks.zapfast.ZapFast.desktop` and sets the same id in `FLATPAK_ID`.
+/// `rocks.wavo.WAVO.desktop` and sets the same id in `FLATPAK_ID`.
 fn desktop_file() -> String {
-    std::env::var("FLATPAK_ID").unwrap_or_else(|_| "zapfast".to_owned())
+    std::env::var("FLATPAK_ID").unwrap_or_else(|_| "wavo".to_owned())
 }
 
 /// Counts unread messages on the taskbar icon through the Unity Launcher API.
@@ -100,7 +100,7 @@ fn emit(connection: &zbus::blocking::Connection, uri: &str, count: u32) {
     }
     if let Err(error) = connection.emit_signal(
         None::<&str>,
-        "/com/canonical/unity/launcherentry/zapfast",
+        "/com/canonical/unity/launcherentry/wavo",
         "com.canonical.Unity.LauncherEntry",
         "Update",
         &(uri, properties),
@@ -115,10 +115,10 @@ mod tests {
 
     #[test]
     fn launcher_uri_names_the_desktop_file() {
-        assert_eq!(launcher_uri("zapfast"), "application://zapfast.desktop");
+        assert_eq!(launcher_uri("wavo"), "application://wavo.desktop");
         assert_eq!(
-            launcher_uri("rocks.zapfast.ZapFast"),
-            "application://rocks.zapfast.ZapFast.desktop"
+            launcher_uri("io.github.wavo.Wavo"),
+            "application://io.github.wavo.Wavo.desktop"
         );
     }
 

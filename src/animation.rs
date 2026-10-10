@@ -783,7 +783,7 @@ mod tests {
             .add_frame(&square(40, 40, [0, 255, 0, 255]), 100)
             .expect("frame");
         let webp = encoder.finalize(200).expect("finalizes");
-        let dir = std::env::temp_dir().join(format!("zapfast-ghost-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-ghost-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("dir");
         let path = dir.join("moving.webp");
         std::fs::write(&path, &webp).expect("writes");
@@ -800,7 +800,7 @@ mod tests {
     #[test]
     fn animated_webp_decodes_into_frames() {
         // Two frames 100 ms apart.
-        let dir = std::env::temp_dir().join(format!("zapfast-anim-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-anim-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("dir");
         let path = dir.join("two.gif");
         {
@@ -830,7 +830,7 @@ mod tests {
         if !can_play_video() {
             return;
         }
-        let dir = std::env::temp_dir().join(format!("zapfast-mp4-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-mp4-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("dir");
         let path = dir.join("clip.mp4");
         let made = Command::new("ffmpeg")
@@ -861,7 +861,7 @@ mod tests {
 
     #[test]
     fn a_still_webp_is_not_an_animation() {
-        let dir = std::env::temp_dir().join(format!("zapfast-still-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-still-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("dir");
         let path = dir.join("still.webp");
         image::RgbaImage::from_pixel(4, 4, image::Rgba([1, 2, 3, 255]))
@@ -1274,7 +1274,7 @@ mod tests {
         // screen, which decoded again and evicted another: tiles flickered
         // between the sticker and its placeholder for as long as the picker
         // stayed open (#165).
-        let dir = std::env::temp_dir().join(format!("zapfast-budget-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-budget-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("dir");
         let per_file = 80;
         let paths: Vec<_> = (0..MAX_RESIDENT_FRAMES / per_file as usize + 2)
@@ -1304,7 +1304,7 @@ mod tests {
 
     #[test]
     fn a_poster_plays_every_frame_without_a_placeholder_in_between() {
-        let dir = std::env::temp_dir().join(format!("zapfast-poster-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-poster-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("dir");
         let paths = vec![animated_webp(&dir, "hover.webp", 3)];
         let ctx = egui::Context::default();

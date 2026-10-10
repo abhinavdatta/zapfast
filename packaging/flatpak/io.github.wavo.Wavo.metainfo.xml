@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>rocks.zapfast.ZapFast</id>
-  <name>ZapFast</name>
+  <id>io.github.wavo.Wavo</id>
+  <name>WAVO</name>
   <summary>A native WhatsApp client</summary>
   <developer id="me.paolino">
     <name>Carmine Paolino</name>
@@ -13,18 +13,18 @@
     without a browser engine. Link your phone to read and send messages.</p>
     <p>Browse chats, search your local archive, send attachments and voice messages,
     and use emoji, GIFs and stickers. Closing the window can keep the connection
-    running in the system tray. ZapFast is an independent project, not affiliated
+    running in the system tray. WAVO is an independent project, not affiliated
     with WhatsApp or Meta.</p>
   </description>
-  <launchable type="desktop-id">rocks.zapfast.ZapFast.desktop</launchable>
-  <url type="homepage">https://zapfast.rocks/</url>
-  <url type="bugtracker">https://github.com/crmne/zapfast/issues</url>
-  <url type="help">https://zapfast.rocks/getting-started/</url>
-  <url type="vcs-browser">https://github.com/crmne/zapfast</url>
+  <launchable type="desktop-id">io.github.wavo.Wavo.desktop</launchable>
+  <url type="homepage">https://wavo.rocks/</url>
+  <url type="bugtracker">https://github.com/abhinavdatta/wavo/issues</url>
+  <url type="help">https://wavo.rocks/getting-started/</url>
+  <url type="vcs-browser">https://github.com/abhinavdatta/wavo</url>
   <screenshots>
     <screenshot type="default">
       <caption>A conversation with pictures, voice messages and replies</caption>
-      <image>https://raw.githubusercontent.com/crmne/zapfast/main/docs/screenshot.png</image>
+      <image>https://raw.githubusercontent.com/abhinavdatta/wavo/main/docs/screenshot.png</image>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1"><content_attribute id="social-chat">intense</content_attribute></content_rating>
@@ -38,37 +38,37 @@
   </supports>
   <releases>
     <release version="0.19.0" date="2026-10-03">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.19.0</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.19.0</url>
     </release>
     <release version="0.18.2" date="2026-09-30">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.18.2</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.18.2</url>
     </release>
     <release version="0.18.1" date="2026-09-30">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.18.1</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.18.1</url>
     </release>
     <release version="0.17.0" date="2026-09-26">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.17.0</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.17.0</url>
     </release>
     <release version="0.16.5" date="2026-09-25">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.16.5</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.16.5</url>
     </release>
     <release version="0.16.4" date="2026-09-25">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.16.4</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.16.4</url>
     </release>
     <release version="0.16.3" date="2026-09-25">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.16.3</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.16.3</url>
     </release>
     <release version="0.16.2" date="2026-09-24">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.16.2</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.16.2</url>
     </release>
     <release version="0.16.1" date="2026-09-24">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.16.1</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.16.1</url>
     </release>
     <release version="0.16.0" date="2026-09-24">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.16.0</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.16.0</url>
     </release>
     <release version="0.13.1" date="2026-09-14">
-      <url>https://github.com/crmne/zapfast/releases/tag/v0.13.1</url>
+      <url>https://github.com/abhinavdatta/wavo/releases/tag/v0.13.1</url>
     </release>
   </releases>
 </component>

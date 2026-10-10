@@ -1879,7 +1879,7 @@ mod motion_tests {
 
     #[test]
     fn sticker_motion_is_probed_once_until_the_file_changes() {
-        let dir = std::env::temp_dir().join(format!("zapfast-motion-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-motion-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("creates temporary directory");
         let path = dir.join("animated.webp");
         std::fs::write(&path, b"RIFF0000WEBPANIM").expect("writes animated header");
@@ -1906,7 +1906,7 @@ mod motion_tests {
 
     #[test]
     fn sticker_motion_is_served_from_the_picker_context() {
-        let dir = std::env::temp_dir().join(format!("zapfast-motion-ctx-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-motion-ctx-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("creates temporary directory");
         let path = dir.join("animated.webp");
         std::fs::write(&path, b"RIFF0000WEBPANIM").expect("writes animated header");
@@ -1918,7 +1918,7 @@ mod motion_tests {
 
     #[test]
     fn a_failed_probe_is_retried_instead_of_memoized() {
-        let dir = std::env::temp_dir().join(format!("zapfast-motion-retry-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-motion-retry-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("creates temporary directory");
         let path = dir.join("animated.webp");
         std::fs::write(&path, b"RIFF0000WEBPANIM").expect("writes animated header");

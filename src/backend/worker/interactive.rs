@@ -848,7 +848,7 @@ mod tests {
         worker.archive.insert_message(&carousel, None).unwrap();
         let key = (PEER.to_owned(), "carousel".to_owned(), Some(1));
         worker.downloads.insert(key.clone());
-        let path = std::path::PathBuf::from("/cache/zapfast/media/carousel-card-1.jpg");
+        let path = std::path::PathBuf::from("/cache/wavo/media/carousel-card-1.jpg");
         worker.downloaded(PEER.into(), "carousel".into(), Some(1), Ok(path.clone()));
         assert!(!worker.downloads.contains(&key));
         assert_eq!(

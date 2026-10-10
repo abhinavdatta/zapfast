@@ -1,4 +1,4 @@
-//! First names saved with contacts before ZapFast kept them.
+//! First names saved with contacts before WAVO kept them.
 //!
 //! The phone sends a contact again only when it changes, so a contact synced
 //! before first names were kept has none, and its short name (a group's

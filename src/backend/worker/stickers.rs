@@ -1,7 +1,7 @@
 //! The sticker picker's lists and their sync with the phone.
 //!
 //! WhatsApp names a sticker in app-state sync by its `filehash`: the base64
-//! SHA-256 of the decrypted file. ZapFast names it by the same digest in hex,
+//! SHA-256 of the decrypted file. WAVO names it by the same digest in hex,
 //! which is also the name of every saved or packed copy, so both sides agree
 //! on which sticker a change is about.
 
@@ -152,7 +152,7 @@ const REFERENCE_SEARCH: usize = 2000;
 /// How many stickers others sent the Received shelf holds.
 const RECEIVED_SHELF: usize = 200;
 
-/// Archive marker: favorites the phone synced before ZapFast followed them
+/// Archive marker: favorites the phone synced before WAVO followed them
 /// have been replayed.
 pub(super) const FAVORITES_RECOVERED: &str = "favorite_stickers_recovered_v1";
 
@@ -885,7 +885,7 @@ impl Worker {
         }
     }
 
-    /// Favorites saved on the phone before ZapFast followed them were already
+    /// Favorites saved on the phone before WAVO followed them were already
     /// consumed by earlier syncs, and incremental syncs never repeat them.
     /// Rebuilds the collection holding them once, so they replay.
     pub(super) fn recover_favorites(&mut self) {
@@ -1373,7 +1373,7 @@ mod tests {
     }
 
     /// Carmine's test: a sticker favorited on the phone never showed up. The
-    /// phone favorites a sticker from its own tray, which ZapFast already has
+    /// phone favorites a sticker from its own tray, which WAVO already has
     /// as one of the phone's recent stickers.
     #[test]
     fn a_sticker_favorited_on_the_phone_appears_in_favorites() {

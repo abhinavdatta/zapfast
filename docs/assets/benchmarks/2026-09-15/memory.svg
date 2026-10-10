@@ -6,7 +6,7 @@
   <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
    <cc:Work>
     <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:description>Four paired Linux runs. ZapFast 150 MB PSS; WhatsApp Web and Chromium 1128 MB PSS. Full browser process tree included.</dc:description>
+    <dc:description>Four paired Linux runs. WAVO 150 MB PSS; WhatsApp Web and Chromium 1128 MB PSS. Full browser process tree included.</dc:description>
     <dc:format>image/svg+xml</dc:format>
     <dc:creator>
      <cc:Agent>
@@ -58,7 +58,7 @@ z
     <g id="ytick_1">
      <g id="line2d_1"/>
      <g id="text_1">
-      <!-- ZapFast -->
+      <!-- WAVO -->
       <g style="fill: #edf3f5" transform="translate(130.7775 194.706094) scale(0.12 -0.12)">
        <defs>
         <path id="DejaVuSans-3d" d="M 359 4666
@@ -1215,7 +1215,7 @@ z
    </g>
   </g>
   <g id="text_7">
-   <!-- ZapFast 0.13.1 vs WhatsApp Web + Chromium 152 -->
+   <!-- WAVO 0.13.1 vs WhatsApp Web + Chromium 152 -->
    <g style="fill: #a3b4bf" transform="translate(60.48 72.9) scale(0.12 -0.12)">
     <defs>
      <path id="DejaVuSans-13" d="M 2034 4250
@@ -1962,7 +1962,7 @@ z
    </g>
   </g>
   <g id="text_11">
-   <!-- zapfast.rocks/benchmarks -->
+   <!-- wavo.rocks/benchmarks -->
    <g style="fill: #25d366" transform="translate(60.48 466.56) scale(0.12 -0.12)">
     <defs>
      <path id="DejaVuSans-Bold-5d" d="M 366 3500

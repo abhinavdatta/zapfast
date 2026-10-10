@@ -28,7 +28,7 @@ pub fn external_url(value: &str) -> Option<String> {
     }
 }
 
-/// Image formats decoded by ZapFast's in-process preview.
+/// Image formats decoded by WAVO's in-process preview.
 pub fn can_preview_image(path: &Path) -> bool {
     let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
         return false;
@@ -39,8 +39,16 @@ pub fn can_preview_image(path: &Path) -> bool {
     )
 }
 
+/// Documents shown by WAVO's built-in PDF viewer.
+pub fn can_preview_pdf(path: &Path) -> bool {
+    let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    extension.eq_ignore_ascii_case("pdf")
+}
+
 /// The code of a WhatsApp group invite link such as
-/// `https://chat.whatsapp.com/AbCd123`, which ZapFast opens itself.
+/// `https://chat.whatsapp.com/AbCd123`, which WAVO opens itself.
 pub fn group_invite_code(value: &str) -> Option<String> {
     let url = reqwest::Url::parse(value.trim()).ok()?;
     if !matches!(url.scheme(), "http" | "https")
@@ -107,6 +115,22 @@ pub fn can_open_attachment(path: &Path) -> bool {
             | "ods"
             | "odp"
             | "rtf"
+            | "doc"
+            | "xls"
+            | "ppt"
+            | "json"
+            | "xml"
+            | "md"
+            | "eml"
+            | "vcf"
+            | "zip"
+            | "rar"
+            | "7z"
+            | "tar"
+            | "gz"
+            | "tgz"
+            | "bz2"
+            | "xz"
     )
 }
 
@@ -193,9 +217,34 @@ mod tests {
 
     #[test]
     fn only_recognized_document_and_media_extensions_can_launch() {
-        for name in ["photo.JPG", "document.pdf", "voice.ogg", "sheet.xlsx"] {
+        for name in [
+            "photo.JPG",
+            "document.pdf",
+            "voice.ogg",
+            "sheet.xlsx",
+            "letter.doc",
+            "data.xls",
+            "slides.ppt",
+            "config.json",
+            "config.xml",
+            "README.md",
+            "message.eml",
+            "contact.vcf",
+            "backup.zip",
+            "backup.rar",
+            "backup.7z",
+            "archive.tar",
+            "archive.gz",
+            "archive.tgz",
+            "archive.bz2",
+            "archive.xz",
+        ] {
             assert!(can_open_attachment(Path::new(name)), "{name}");
         }
+        assert!(can_preview_pdf(Path::new("document.pdf")));
+        assert!(!can_preview_pdf(Path::new("document.pdf.exe")));
+        assert!(can_preview_pdf(Path::new("document.PDF")));
+        assert!(!can_preview_pdf(Path::new("photo.png")));
         for name in [
             "invoice.pdf.exe",
             "setup.msi",

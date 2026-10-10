@@ -5,15 +5,19 @@ pub mod chats;
 pub mod conversation;
 pub mod dialogs;
 pub(crate) mod focus;
+pub mod image_editor;
 pub mod image_preview;
 pub mod keys;
 pub mod labels;
 pub mod lock;
 pub mod login;
 pub mod message_info;
+pub mod pages;
 pub mod pane;
+pub mod pdf_preview;
 pub mod picker;
 pub mod polls;
+pub mod profiles;
 pub mod settings;
 pub mod update;
 pub mod video_preview;
@@ -25,6 +29,7 @@ use crate::app::App;
 use crate::backend::LinkStatus;
 use crate::model::{Action, Page, SidebarDisplayMode, ToastKind};
 use crate::theme::{self, Icon};
+use focus::TabStop;
 
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let ctx = ui.ctx().clone();
@@ -35,6 +40,14 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     if app.app_lock.is_locked() {
         titlebar_strip(app, ui);
         lock::show(app, ui);
+        focus_ring(app, ctx);
+        return;
+    }
+    // The profile gate at app start: a profile wall over everything, with
+    // the password ask for a picked, pinned profile.
+    if app.profile_gate.is_some() {
+        titlebar_strip(app, ui);
+        profiles::show(app, ui);
         focus_ring(app, ctx);
         return;
     }
@@ -70,9 +83,21 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     if !macos {
         banner(app, ui);
     }
-    match app.sidebar_mode() {
-        SidebarDisplayMode::Expanded => chats::show(app, ui),
-        SidebarDisplayMode::CollapsedIconsOnly => chats::compact_show(app, ui),
+    egui::Panel::left("rail")
+        .exact_size(rail_width())
+        .resizable(false)
+        .show_separator_line(false)
+        .frame(Frame::new().fill(app.palette.panel))
+        .show(ui, |ui| rail(app, ui));
+    // The status, channel and community pages carry a list of their own in the
+    // left column, like WhatsApp Web. Every other page keeps the chat list,
+    // collapsed to avatars when it is hidden.
+    let own_list = matches!(app.page, Page::Status | Page::Channels | Page::Communities);
+    if !own_list {
+        match app.sidebar_mode() {
+            SidebarDisplayMode::Expanded => chats::show(app, ui),
+            SidebarDisplayMode::CollapsedIconsOnly => chats::compact_show(app, ui),
+        }
     }
     let search_overlay = pane::show(app, ui);
     egui::CentralPanel::default()
@@ -80,6 +105,9 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         .show(ui, |ui| match app.page {
             Page::Settings => settings::show(app, ui),
             Page::Chats => conversation::show(app, ui),
+            Page::Status => pages::status::show(app, ui),
+            Page::Channels => pages::channels::show(app, ui),
+            Page::Communities => pages::communities::show(app, ui),
             Page::Wallpaper => settings::wallpaper_show(app, ui),
         });
     if let Some(region) = search_overlay {
@@ -91,6 +119,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     dialogs::show(app, ctx);
     image_preview::show(app, ctx);
     video_preview::show(app, ctx);
+    image_editor::show(app, ctx);
+    pdf_preview::show(app, ctx);
     drop_target(app, ctx);
     toasts(app, ctx);
     focus_ring(app, ctx);
@@ -117,6 +147,158 @@ fn central_frame(app: &App) -> Frame {
     };
 
     Frame::new().fill(central_background(app)).stroke(stroke)
+}
+
+/// Rail width: a compact column of round tab buttons.
+fn rail_width() -> f32 {
+    58.0
+}
+
+/// The left navigation rail: Chats, Status, Channels, Communities, then
+/// Settings, mirroring the phone's bottom tabs.
+fn rail(app: &mut App, ui: &mut egui::Ui) {
+    let palette = app.palette;
+    ui.add_space(10.0);
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 4.0;
+        tab_button(
+            app,
+            ui,
+            Icon::MessageCircle,
+            Page::Chats,
+            "Chats",
+            app.unread_chat_count(),
+            keys::Stop::RailChats,
+        );
+        let status_unseen = app
+            .status_entries()
+            .iter()
+            .filter(|entry| !entry.seen)
+            .count() as u32;
+        tab_button(
+            app,
+            ui,
+            Icon::CircleDashed,
+            Page::Status,
+            "Status",
+            status_unseen,
+            keys::Stop::RailStatus,
+        );
+        tab_button(
+            app,
+            ui,
+            Icon::Megaphone,
+            Page::Channels,
+            "Channels",
+            app.account().unread_chat_count(),
+            keys::Stop::RailChannels,
+        );
+        tab_button(
+            app,
+            ui,
+            Icon::Users,
+            Page::Communities,
+            "Communities",
+            0,
+            keys::Stop::RailCommunities,
+        );
+    });
+    ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+        ui.add_space(10.0);
+        let settings = tab_icon_button(
+            ui,
+            &palette,
+            Icon::Settings,
+            app.page == Page::Settings,
+            "Settings (Ctrl+)",
+            0,
+            keys::Stop::Settings,
+        );
+        if settings.clicked() {
+            app.actions.push(Action::Open(Page::Settings));
+        }
+    });
+}
+
+fn tab_button(
+    app: &mut App,
+    ui: &mut egui::Ui,
+    icon: Icon,
+    page: Page,
+    label: &str,
+    badge: u32,
+    stop: keys::Stop,
+) {
+    let palette = app.palette;
+    let status = page == Page::Status;
+    let response = tab_icon_button(ui, &palette, icon, app.page == page, label, badge, stop);
+    if response.clicked() {
+        app.actions.push(Action::Open(page));
+        // Opening the Status page without playing a story reads the updates
+        // shown, like WhatsApp Web's preview list. Playing a story marks its
+        // updates seen when the story closes instead.
+        if status && app.status_story.is_none() {
+            app.actions.push(Action::MarkStatusSeen);
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn tab_icon_button(
+    ui: &mut egui::Ui,
+    palette: &crate::theme::Palette,
+    icon: Icon,
+    selected: bool,
+    label: &str,
+    badge: u32,
+    stop: keys::Stop,
+) -> egui::Response {
+    let size = 40.0;
+    let (rect, response) = ui.allocate_exact_size(
+        egui::vec2(rail_width() - 12.0, size + 8.0),
+        egui::Sense::click(),
+    );
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label)
+    });
+    if response.hovered() {
+        ui.painter().rect_filled(rect, 12.0, palette.surface_hover);
+    }
+    let icon_rect = egui::Rect::from_center_size(
+        egui::pos2(rect.center().x, rect.top() + size / 2.0),
+        egui::Vec2::splat(size),
+    );
+    if selected {
+        let pill = egui::Rect::from_center_size(
+            egui::pos2(icon_rect.center().x, icon_rect.bottom() - 3.0),
+            egui::vec2(icon_rect.width() - 12.0, 3.0),
+        );
+        ui.painter().rect_filled(pill, 2.0, palette.accent);
+    }
+    let color = if selected {
+        palette.accent
+    } else {
+        palette.secondary
+    };
+    theme::paint_icon(ui, icon, icon_rect, 22.0, color);
+    if badge > 0 {
+        let center = egui::pos2(icon_rect.right() - 2.0, icon_rect.top() + 4.0);
+        ui.painter().circle_filled(center, 8.0, palette.accent);
+        ui.painter().text(
+            center,
+            egui::Align2::CENTER_CENTER,
+            if badge > 99 {
+                "99+".to_owned()
+            } else {
+                badge.to_string()
+            },
+            theme::medium(10.0),
+            palette.on_accent,
+        );
+    }
+    // The rail is a narrow icon column, like WhatsApp Web: the label lives in
+    // the tooltip and the accessibility name, not in the pixels.
+    response.on_hover_text(label).tab_stop(stop)
 }
 
 /// Where the focus ring was drawn this frame, used by interaction tests.
@@ -259,7 +441,7 @@ fn banner(app: &mut App, ui: &mut egui::Ui) {
             let update = update.as_ref().expect("checked above");
             (
                 Icon::Info,
-                format!("ZapFast {} is available", update.version),
+                format!("WAVO {} is available", update.version),
                 palette.accent,
                 false,
                 Some(update.url.clone()),

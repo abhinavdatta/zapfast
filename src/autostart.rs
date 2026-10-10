@@ -1,4 +1,4 @@
-//! Starting ZapFast in the tray when the person logs in.
+//! Starting WAVO in the tray when the person logs in.
 //!
 //! The platform's own login-item entry is the only record: Settings reads it
 //! back rather than keeping a copy that could disagree with it.
@@ -6,7 +6,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-/// Argument that starts ZapFast without a window.
+/// Argument that starts WAVO without a window.
 pub const HIDDEN: &str = "--start-hidden";
 
 /// Whether this installation can register itself to start at login.
@@ -16,7 +16,7 @@ pub fn supported() -> bool {
     std::env::var_os("FLATPAK_ID").is_none() && executable().is_some()
 }
 
-/// Whether ZapFast is registered to start at login.
+/// Whether WAVO is registered to start at login.
 pub fn enabled() -> bool {
     platform::enabled()
 }
@@ -27,7 +27,7 @@ pub fn set(enabled: bool) -> io::Result<()> {
         return platform::remove();
     }
     let executable = executable()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "cannot locate ZapFast"))?;
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "cannot locate WAVO"))?;
     platform::install(&executable)
 }
 
@@ -48,7 +48,7 @@ mod platform {
             .map(PathBuf::from)
             .filter(|path| path.is_absolute())
             .or_else(|| std::env::var_os("HOME").map(|home| Path::new(&home).join(".config")))?;
-        Some(config.join("autostart").join("zapfast.desktop"))
+        Some(config.join("autostart").join("wavo.desktop"))
     }
 
     pub fn enabled() -> bool {
@@ -72,10 +72,10 @@ mod platform {
         format!(
             "[Desktop Entry]\n\
              Type=Application\n\
-             Name=ZapFast\n\
-             Comment=Start ZapFast in the tray\n\
+             Name=WAVO\n\
+             Comment=Start WAVO in the tray\n\
              Exec={} {HIDDEN}\n\
-             Icon=zapfast\n\
+             Icon=wavo\n\
              Terminal=false\n\
              X-GNOME-Autostart-enabled=true\n",
             exec_quote(&executable.to_string_lossy())
@@ -103,7 +103,7 @@ mod platform {
 mod platform {
     use super::*;
 
-    const LABEL: &str = "me.paolino.zapfast";
+    const LABEL: &str = "io.github.wavo.Wavo";
 
     fn entry() -> Option<PathBuf> {
         let home = std::env::var_os("HOME")?;
@@ -172,7 +172,7 @@ mod platform {
     };
 
     const RUN: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
-    const VALUE: &str = "ZapFast";
+    const VALUE: &str = "WAVO";
 
     fn wide(text: &str) -> Vec<u16> {
         std::ffi::OsStr::new(text)
@@ -265,11 +265,9 @@ mod tests {
     #[test]
     fn the_launch_agent_starts_hidden_and_escapes_the_path() {
         let plist = super::platform::launch_agent(std::path::Path::new(
-            "/Applications/A&B.app/Contents/MacOS/zapfast",
+            "/Applications/A&B.app/Contents/MacOS/wavo",
         ));
-        assert!(
-            plist.contains("<string>/Applications/A&amp;B.app/Contents/MacOS/zapfast</string>")
-        );
+        assert!(plist.contains("<string>/Applications/A&amp;B.app/Contents/MacOS/wavo</string>"));
         assert!(plist.contains("<string>--start-hidden</string>"));
     }
 }

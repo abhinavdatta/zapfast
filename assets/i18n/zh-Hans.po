@@ -1,14 +1,14 @@
-# Simplified Chinese translation of ZapFast.
-# Distributed under the same MIT license as ZapFast.
+# Simplified Chinese translation of WAVO.
+# Distributed under the same MIT license as WAVO.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: ZapFast\n"
-"Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
+"Project-Id-Version: WAVO\n"
+"Report-Msgid-Bugs-To: https://github.com/abhinavdatta/wavo/issues/new?"
 "template=translation.yml\n"
 "POT-Creation-Date: 2026-10-03 17:10+0200\n"
 "PO-Revision-Date: 2026-09-25 23:00-0300\n"
-"Last-Translator: ZapFast contributors\n"
+"Last-Translator: WAVO contributors\n"
 "Language-Team: Chinese (Simplified)\n"
 "Language: zh-Hans\n"
 "MIME-Version: 1.0\n"
@@ -223,8 +223,8 @@ msgid "You left this channel"
 msgstr "你已退出此频道"
 
 #: src/ui/conversation.rs:822
-msgid "Channels are read-only in ZapFast"
-msgstr "ZapFast 中的频道为只读"
+msgid "Channels are read-only in WAVO"
+msgstr "WAVO 中的频道为只读"
 
 #: src/ui/conversation.rs:851
 msgid "You left this group"
@@ -670,8 +670,8 @@ msgstr "显示“正在输入”"
 
 #: src/ui/settings.rs:502
 msgid ""
-"Could not load your account privacy. Trying again when ZapFast reconnects."
-msgstr "无法加载账号隐私设置。ZapFast 重新连接后会再试一次。"
+"Could not load your account privacy. Trying again when WAVO reconnects."
+msgstr "无法加载账号隐私设置。WAVO 重新连接后会再试一次。"
 
 #: src/ui/settings.rs:507
 msgid "Connect to WhatsApp to change your account privacy."
@@ -710,8 +710,8 @@ msgid "Check for updates"
 msgstr "检查更新"
 
 #: src/ui/settings.rs:590
-msgid "Asks GitHub once a day, sending only the ZapFast version."
-msgstr "每天向 GitHub 查询一次，只发送 ZapFast 版本号。"
+msgid "Asks GitHub once a day, sending only the WAVO version."
+msgstr "每天向 GitHub 查询一次，只发送 WAVO 版本号。"
 
 #: src/ui/settings.rs:595
 msgid "Download updates automatically"
@@ -720,8 +720,8 @@ msgstr "自动下载更新"
 #: src/ui/settings.rs:598
 msgid ""
 "You still choose when to restart. Package managers and Flatpak update "
-"ZapFast themselves."
-msgstr "重启时机仍由你决定。包管理器和 Flatpak 会自行更新 ZapFast。"
+"WAVO themselves."
+msgstr "重启时机仍由你决定。包管理器和 Flatpak 会自行更新 WAVO。"
 
 #: src/ui/settings.rs:611
 #, rust-format
@@ -852,7 +852,7 @@ msgstr "已锁定"
 
 #: src/ui/settings.rs:827
 msgid ""
-"Time without using ZapFast, also counted while it is in the tray. "
+"Time without using WAVO, also counted while it is in the tray. "
 "Ctrl+Shift+L locks it at once."
 msgstr ""
 
@@ -1074,8 +1074,8 @@ msgid "Could not use this image"
 msgstr "无法使用此图片"
 
 #: src/app.rs:3276
-msgid "Not sent: ZapFast is not connected to WhatsApp."
-msgstr "未发送：ZapFast 未连接到 WhatsApp。"
+msgid "Not sent: WAVO is not connected to WhatsApp."
+msgstr "未发送：WAVO 未连接到 WhatsApp。"
 
 #: src/app.rs:3280
 msgid ""
@@ -1093,8 +1093,8 @@ msgstr "正在发送贴图包…"
 
 #: src/app.rs:5154 src/ui/labels.rs:253
 #, rust-format
-msgid "You have {limit} labels, the most ZapFast keeps."
-msgstr "你已有 {limit} 个标签，这是 ZapFast 的上限。"
+msgid "You have {limit} labels, the most WAVO keeps."
+msgstr "你已有 {limit} 个标签，这是 WAVO 的上限。"
 
 #: src/app.rs:5834
 msgid "App lock password saved"
@@ -1444,7 +1444,7 @@ msgid "Open in another app"
 msgstr "在其他应用中打开"
 
 #: src/ui/lock.rs:17
-msgid "ZapFast is locked"
+msgid "WAVO is locked"
 msgstr ""
 
 #: src/ui/lock.rs:23

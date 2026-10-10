@@ -6,17 +6,17 @@
   "platform": "Arch Linux / Hyprland",
   "cpu": "AMD Ryzen 5 7500F",
   "system_ram_gib": 62.4,
-  "zapfast_version": "0.13.1",
+  "wavo_version": "0.13.1",
   "chromium_version": "152.0.7977.82",
   "window_size_logical": [
     1280,
     800
   ],
-  "method_url": "https://zapfast.rocks/benchmarks/",
+  "method_url": "https://wavo.rocks/benchmarks/",
   "runs": [
     {
       "run": 1,
-      "app": "zapfast",
+      "app": "wavo",
       "window_mapped_ms": 155.953703000705,
       "chat_ui_observed_ms": 692.7590049999708,
       "chat_ui_method": "Chats header visible in compositor capture, OCR; includes detection and window placement overhead",
@@ -148,7 +148,7 @@
     },
     {
       "run": 2,
-      "app": "zapfast",
+      "app": "wavo",
       "window_mapped_ms": 154.11380699879373,
       "chat_ui_observed_ms": 690.605293999397,
       "chat_ui_method": "Chats header visible in compositor capture, OCR; includes detection and window placement overhead",
@@ -192,7 +192,7 @@
     },
     {
       "run": 3,
-      "app": "zapfast",
+      "app": "wavo",
       "window_mapped_ms": 150.33991699965554,
       "chat_ui_observed_ms": 686.8661160006013,
       "chat_ui_method": "Chats header visible in compositor capture, OCR; includes detection and window placement overhead",
@@ -324,7 +324,7 @@
     },
     {
       "run": 4,
-      "app": "zapfast",
+      "app": "wavo",
       "window_mapped_ms": 150.83792800214724,
       "chat_ui_observed_ms": 553.0579879996367,
       "chat_ui_method": "Chats header visible in compositor capture, OCR; includes detection and window placement overhead",

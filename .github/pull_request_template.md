@@ -1,6 +1,6 @@
 ## Why
 
-What user problem does this solve, and why does it belong in ZapFast?
+What user problem does this solve, and why does it belong in WAVO?
 
 ## What changed
 

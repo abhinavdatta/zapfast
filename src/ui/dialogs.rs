@@ -284,9 +284,9 @@ fn unlock_locked_chats(app: &mut App, ui: &mut egui::Ui) {
     theme::paragraph(
         ui,
         if setup {
-            "Choose a local code to open the Locked tab. It is separate from your phone's code. This hides chats in ZapFast, it does not add another encryption layer."
+            "Choose a local code to open the Locked tab. It is separate from your phone's code. This hides chats in WAVO, it does not add another encryption layer."
         } else {
-            "Enter your local ZapFast code. Leaving the Locked tab or closing the window locks it again."
+            "Enter your local WAVO code. Leaving the Locked tab or closing the window locks it again."
         },
         theme::regular(13.0),
         palette.secondary,
@@ -362,7 +362,7 @@ fn confirm_lock_chat(app: &mut App, ui: &mut egui::Ui, id: &str) {
     title(ui, app, "Lock this chat?");
     theme::paragraph(
         ui,
-        "This moves the chat to the Locked tab, hiding it from the normal chat list, search, unread badges, and notifications. The lock status also syncs to your phone. Open Locked with a separate local ZapFast code to read it. Sending from locked chats is not supported yet.",
+        "This moves the chat to the Locked tab, hiding it from the normal chat list, search, unread badges, and notifications. The lock status also syncs to your phone. Open Locked with a separate local WAVO code to read it. Sending from locked chats is not supported yet.",
         theme::regular(13.0),
         palette.secondary,
     );
@@ -693,7 +693,7 @@ fn about(app: &mut App, ui: &mut egui::Ui) {
         let (logo, _) = ui.allocate_exact_size(egui::Vec2::splat(44.0), egui::Sense::hover());
         theme::mark(ui, logo.center(), 44.0);
         ui.vertical(|ui| {
-            theme::text(ui, "ZapFast", theme::bold(17.0), palette.text);
+            theme::text(ui, "WAVO", theme::bold(17.0), palette.text);
             theme::text(
                 ui,
                 format!("Version {}", env!("CARGO_PKG_VERSION")),
@@ -1075,7 +1075,7 @@ fn confirm_start_over(app: &mut App, ui: &mut egui::Ui) {
     title(ui, app, "Start over?");
     theme::paragraph(
         ui,
-        "ZapFast keeps your unreadable archive as a separate file, creates a new one, and asks you to link again. Linking again brings back recent history from your phone. Afterwards, remove the old ZapFast entry under Linked devices on your phone.",
+        "WAVO keeps your unreadable archive as a separate file, creates a new one, and asks you to link again. Linking again brings back recent history from your phone. Afterwards, remove the old WAVO entry under Linked devices on your phone.",
         theme::regular(13.5),
         palette.text,
     );

@@ -1,13 +1,13 @@
-# ZapFast agent guide
+# WAVO agent guide
 
-ZapFast is a small native WhatsApp client: Rust, egui, and the
+WAVO is a small native WhatsApp client: Rust, egui, and the
 [whatsapp-rust](https://github.com/oxidezap/whatsapp-rust) library for the
 protocol. These notes are for coding agents and new contributors.
 
 ## Product boundaries
 
 - Keep it a small native client. No browser engine, no telemetry, no
-  hosted backend, no ZapFast-operated account system. Features never send
+  hosted backend, no WAVO-operated account system. Features never send
   message content to a third party.
 - Do not vendor, fork, or patch upstream crates (egui, epaint, whatsapp-rust)
   in this repository. Fix them upstream.
@@ -117,20 +117,20 @@ protocol. These notes are for coding agents and new contributors.
 - Chat ids are canonical strings: a chat behind a privacy id (`@lid`) is
   filed under its phone number once the mapping is known. Use
   `Worker::canonical` for anything that arrives as a `Jid`.
-- Updates come from fastframe-update: `src/updates.rs` holds ZapFast's
+- Updates come from fastframe-update: `src/updates.rs` holds WAVO's
   `UpdateConfig` (legacy `fastsapp` names, the publisher key) and the
   proxy-aware client. It downloads verified GitHub releases and hands
   installation to a helper after an explicit restart action. `main` calls
   `fastframe_update::intercept` before anything else, so `--apply-update`,
   `--update-receipt` and `--update-error` keep working with older releases'
   helpers (`tests/update_flags.rs`). Portable releases carry
-  `packaging/zapfast-portable.txt`; the Windows installer has its own marker.
-- Custom themes come from fastframe-theme (`theme::Catalog`, ZapFast's
+  `packaging/wavo-portable.txt`; the Windows installer has its own marker.
+- Custom themes come from fastframe-theme (`theme::Catalog`, WAVO's
   `fastframe_theme::Palette` impl in `src/theme.rs`): it scans local JSON
   palettes off the UI thread, and the app caches the last usable choice in
   settings, with the palettes shared with Spotifast embedded as defaults. On Linux filesystem notifications reload the catalog and the active
   Omarchy palette without a repaint timer; following Omarchy does not require
-  packaged assets. Changing `contrib/omarchy/zapfast.json.tpl` means saving the
+  packaged assets. Changing `contrib/omarchy/wavo.json.tpl` means saving the
   old text in `contrib/omarchy/previous/` and listing it in
   `omarchy_previous_templates`, so untouched installed copies are upgraded. Native packages ship optional hooks and templates, preserving
   existing per-user files. `reload-themes` uses the single-instance channel
@@ -281,17 +281,17 @@ protocol. These notes are for coding agents and new contributors.
   Linux, tray-icon on Windows and macOS; on macOS made with the first window
   and pumped by `fastframe_tray::idle` while none exists), and `src/macos.rs`
   hands its menu events to `fastframe_tray::claim_menu_event` first.
-  Closing keeps ZapFast running, and a hidden start stays hidden, only while
+  Closing keeps WAVO running, and a hidden start stays hidden, only while
   `Tray::is_shown`: on Linux the item exists before a panel shows it (a
   start at login beats the panel) and registers once one appears. A
   hidden start makes the macOS item with `Tray::create_item`, which does not
-  bring ZapFast forward; a window's `attach` makes it otherwise.
+  bring WAVO forward; a window's `attach` makes it otherwise.
   `src/single_instance.rs` claims fastframe-instance's slot in the runtime
   directory (`Slot::at(runtime, "fastsapp")`, so requests and replies stay
   `fastsapp:show` and `fastsapp:ok` for older copies), and a second launch
   asks the first to surface over a private socket (a token-checked loopback
   port on Windows); the handler queues `ControlCommand`s and declines unknown
-  verbs. The fixed port 47119 that 0.15-era copies look for stays in ZapFast,
+  verbs. The fixed port 47119 that 0.15-era copies look for stays in WAVO,
   answered once the slot is claimed. `src/notify.rs` sends desktop notifications
   for `Event::Incoming` (live messages from others, not history) when the
   reader is away from that chat; a click carries the chat and the message
@@ -420,7 +420,7 @@ A release is not finished when the tag is pushed. Do these in order:
    `packaging/release-notes/vX.Y.Z.md`: the release workflow publishes that
    file as the release description, and a stable tag without it fails. Link
    screenshots at the release's asset URLs
-   (`https://github.com/crmne/zapfast/releases/download/vX.Y.Z/NAME.png`).
+   (`https://github.com/abhinavdatta/wavo/releases/download/vX.Y.Z/NAME.png`).
    Run the full checks, commit, and push `main`. Before tagging, verify the
    release commit is reachable from `origin/main` so the binaries report the
    right version and the release contains the canonical history.
@@ -429,18 +429,18 @@ A release is not finished when the tag is pushed. Do these in order:
 3. Upload the screenshots to the release as assets with the names the notes
    link, then open the published release and check the text, every image,
    and every download link. Never leave generated placeholder notes.
-4. After the release files exist, update both `zapfast_version` in
+4. After the release files exist, update both `wavo_version` in
    `docs/_config.yml` and the version menu in `docs/_data/versions.yml`.
    The menu lists only the current version, which points to `/download/`,
    and the Changelog link; do not add older versions to it. Never point the
    download page at files that do not exist yet. Set `release_asset_prefix` to
-   `zapfast` and `release_app_name` to `ZapFast` only once those assets exist.
+   `wavo` and `release_app_name` to `WAVO` only once those assets exist.
 5. Update the AUR packages from the templates in `packaging/arch/`. The shared
    packaging workflow generates versions, hashes and `.SRCINFO` after the
    release exists, and publishes when `PUBLISH_AUR` and the required secrets
    are configured. Otherwise use `native-packages` to build, stage,
    review and publish the generated recipes; see `PACKAGING.md`. Validate
-   native builds with `makepkg -f`. A recipe-only `zapfast-git` change does
+   native builds with `makepkg -f`. A recipe-only `wavo-git` change does
    not require an application release.
 
 ## Definition of done

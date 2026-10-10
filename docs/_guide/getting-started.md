@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Install ZapFast, link your phone, and load chat history.
+description: Install WAVO, link your phone, and load chat history.
 nav_order: 2
 ---
 
@@ -12,14 +12,14 @@ macOS, and Windows.
 Or build from source with a recent stable [Rust](https://rustup.rs):
 
 ```sh
-git clone https://github.com/crmne/zapfast zapfast
-cd zapfast
+git clone https://github.com/abhinavdatta/wavo wavo
+cd wavo
 cargo install --path .
-zapfast
+wavo
 ```
 
 On Linux, `cargo install` puts the binary on your `PATH` but does not add a
-launcher entry. To get one (ZapFast under your application launcher, with its
+launcher entry. To get one (WAVO under your application launcher, with its
 own icon and no terminal), install a release build instead:
 
 ```sh
@@ -46,12 +46,12 @@ On Debian or Ubuntu:
 sudo apt install build-essential cmake libasound2-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev
 ```
 
-The packaged desktop entry is `packaging/applications/zapfast.desktop`;
+The packaged desktop entry is `packaging/applications/wavo.desktop`;
 `packaging/install-user.sh` derives the user copy above from it.
 
 ## Link with your phone
 
-ZapFast links as a companion device, like WhatsApp Web. Start it and either:
+WAVO links as a companion device, like WhatsApp Web. Start it and either:
 
 - scan the QR code with your phone (WhatsApp, **Settings**, **Linked
   devices**, **Link a device**), or
@@ -59,14 +59,14 @@ ZapFast links as a companion device, like WhatsApp Web. Start it and either:
   phone.
 
 The link survives restarts. Your phone does not need to stay on the same
-network or be online to read messages already stored in ZapFast.
+network or be online to read messages already stored in WAVO.
 
 ## Message history
 
 After linking, the phone sends recent history. The chat list appears within
-seconds, and messages can take a few minutes to finish loading. ZapFast stores
+seconds, and messages can take a few minutes to finish loading. WAVO stores
 new messages in its own archive. When you scroll past the stored history,
-ZapFast asks your phone for older messages. The phone must be online.
+WAVO asks your phone for older messages. The phone must be online.
 
 ## Try it in your own chat
 

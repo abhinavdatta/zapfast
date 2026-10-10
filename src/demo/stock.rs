@@ -225,7 +225,7 @@ mod tests {
 
     #[test]
     fn the_clips_decode_in_process() {
-        let dir = std::env::temp_dir().join(format!("zapfast-stock-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-stock-{}", std::process::id()));
         for (name, bytes, size) in [
             ("launch.mp4", VIDEO, [640, 360]),
             ("note.mp4", NOTE, [360, 360]),

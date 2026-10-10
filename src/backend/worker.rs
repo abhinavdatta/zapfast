@@ -678,7 +678,7 @@ fn invite_error(error: &str) -> String {
 /// unconfirmed. A healthy sync answers well within this.
 const PRIVACY_GRACE: Duration = Duration::from_secs(10);
 
-/// How long ZapFast stays "available" after the window loses focus.
+/// How long WAVO stays "available" after the window loses focus.
 const PRESENCE_LINGER: Duration = Duration::from_secs(10);
 
 /// Waits longer after each failed lock-state recovery, so a collection the
@@ -813,7 +813,7 @@ struct Worker {
     favorites_pushing: bool,
     /// More favorite changes arrived while a push was running.
     favorites_again: bool,
-    /// The phone's favorites from before ZapFast followed them were replayed.
+    /// The phone's favorites from before WAVO followed them were replayed.
     favorites_recovered: bool,
     /// That replay is running.
     favorites_recovering: bool,
@@ -1553,7 +1553,7 @@ impl Worker {
             // WhatsApp reads the linked-device name, version, and icon at pairing.
             .with_device_props(
                 DevicePropsOverride::new()
-                    .with_os("ZapFast")
+                    .with_os("WAVO")
                     .with_version(app_version())
                     .with_platform_type(wa::device_props::PlatformType::DESKTOP),
             )
@@ -2173,6 +2173,13 @@ impl Worker {
                         }
                         participants.push(id);
                     }
+                    // A parent group points at itself; a linked subgroup
+                    // points at its community.
+                    let community = metadata
+                        .parent_group_jid
+                        .as_ref()
+                        .map(canonical)
+                        .or_else(|| metadata.is_parent_group.then(|| chat.clone()));
                     let _ = commands.send(Command::GroupInfo {
                         leave_generation,
                         chat,
@@ -2192,6 +2199,7 @@ impl Worker {
                         info_locked: metadata.is_locked,
                         admin,
                         subject_generation,
+                        community,
                     });
                 }
                 Err(error) => {
@@ -2361,7 +2369,7 @@ impl Worker {
             }
             E::ClientOutdated(_) => {
                 self.set_status(LinkStatus::Failed(
-                    "WhatsApp rejected this version of ZapFast. Update the app".to_owned(),
+                    "WhatsApp rejected this version of WAVO. Update the app".to_owned(),
                 ));
             }
             E::Messages(batch) => {
@@ -2409,7 +2417,7 @@ impl Worker {
                         .set_ephemeral(&chat, *expiration, timestamp)
                         .unwrap_or(false);
                     log::debug!(
-                        target: "zapfast::disappearing",
+                        target: "wavo::disappearing",
                         "group timer update: duration={expiration}s timestamp={timestamp} accepted={accepted}"
                     );
                     if accepted {
@@ -3028,7 +3036,7 @@ impl Worker {
                         .set_ephemeral(&chat, expiration, timestamp)
                         .unwrap_or(false);
                     log::debug!(
-                        target: "zapfast::disappearing",
+                        target: "wavo::disappearing",
                         "protocol timer update: duration={expiration}s timestamp={timestamp} fallback_timestamp={used_fallback} accepted={accepted}"
                     );
                     if accepted {
@@ -3036,7 +3044,7 @@ impl Worker {
                     }
                 } else {
                     log::debug!(
-                        target: "zapfast::disappearing",
+                        target: "wavo::disappearing",
                         "protocol timer update missing expiration"
                     );
                 }
@@ -4284,7 +4292,7 @@ impl Worker {
                     Err(_) => false,
                 };
             if !writable {
-                let error = "This conversation is read-only in ZapFast".to_owned();
+                let error = "This conversation is read-only in WAVO".to_owned();
                 if matches!(&command, Command::CreatePoll { .. }) {
                     self.emit(Event::PollCreated {
                         chat: chat.clone(),
@@ -5026,7 +5034,7 @@ impl Worker {
                 let Some(client) = self.client.clone() else {
                     self.emit(Event::InvitePreview {
                         code,
-                        result: Err("ZapFast is not connected to WhatsApp".to_owned()),
+                        result: Err("WAVO is not connected to WhatsApp".to_owned()),
                     });
                     return;
                 };
@@ -5055,7 +5063,7 @@ impl Worker {
                 let Some(client) = self.client.clone() else {
                     self.emit(Event::InviteJoined {
                         code,
-                        result: Err("ZapFast is not connected to WhatsApp".to_owned()),
+                        result: Err("WAVO is not connected to WhatsApp".to_owned()),
                     });
                     return;
                 };
@@ -5342,7 +5350,7 @@ impl Worker {
                         // The phone has cleared it; say so rather than leave
                         // the messages here looking as if nothing happened.
                         self.emit(Event::Error(
-                            "The phone cleared this chat, but ZapFast could not clear it here"
+                            "The phone cleared this chat, but WAVO could not clear it here"
                                 .to_owned(),
                         ));
                     }
@@ -5598,6 +5606,7 @@ impl Worker {
                 info_locked,
                 admin,
                 subject_generation,
+                community,
             } => {
                 // A snapshot asked for before a rename made here was confirmed
                 // may still carry the old subject: keep ours.
@@ -5614,6 +5623,22 @@ impl Worker {
                     self.archive
                         .set_group_info(&chat, name.as_deref(), &participants, read_only);
                 let _ = self.archive.set_group_rights(&chat, info_locked, admin);
+                if community
+                    != self
+                        .archive
+                        .chat(&chat)
+                        .ok()
+                        .flatten()
+                        .and_then(|row| row.community)
+                {
+                    let _ = self.archive.set_community(&chat, community.as_deref());
+                    // A newly discovered community needs its own chat row so
+                    // the Communities page can list it before its metadata
+                    // arrives; ensure_chat keeps the known subject otherwise.
+                    if let Some(parent) = &community {
+                        self.ensure_chat(parent, None);
+                    }
+                }
                 // Metadata that lists us again means we are back in, so a
                 // remembered leave no longer holds. Only a snapshot asked for
                 // after the leave counts: one already in flight when it was
@@ -9255,10 +9280,8 @@ mod tests {
 
     #[test]
     fn attachment_staging_files_are_hidden_and_exclusive() {
-        let directory = std::env::temp_dir().join(format!(
-            "zapfast-attachment-staging-{}",
-            rand::random::<u64>()
-        ));
+        let directory =
+            std::env::temp_dir().join(format!("wavo-attachment-staging-{}", rand::random::<u64>()));
         std::fs::create_dir_all(&directory).expect("creates staging directory");
         let destination = directory.join("photo.jpg");
         let (first_path, first) = temporary_attachment_file(&destination).expect("first file");
@@ -10317,7 +10340,7 @@ mod tests {
     #[tokio::test]
     async fn downloads_use_the_chosen_folder_and_fall_back_to_the_cache() {
         let (mut worker, _events, _, _) = receipt_tests::worker();
-        let root = std::env::temp_dir().join(format!("zapfast-downloads-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("wavo-downloads-{}", std::process::id()));
         let chosen = root.join("Downloads/WhatsApp");
         worker
             .handle_command(Command::SetDownloadFolder(Some(chosen.clone())))
@@ -10480,7 +10503,7 @@ mod tests {
 
     #[test]
     fn starting_over_keeps_the_old_archive_and_forgets_the_link() {
-        let root = std::env::temp_dir().join(format!("zapfast-start-over-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("wavo-start-over-{}", std::process::id()));
         let dirs = crate::paths::AppDirs::under(&root);
         dirs.ensure().unwrap();
         std::fs::write(dirs.archive_db(), b"encrypted").unwrap();
@@ -10808,6 +10831,7 @@ mod receipt_tests {
                 info_locked: false,
                 admin: false,
                 subject_generation: 0,
+                community: None,
             })
             .await;
         assert_eq!(
@@ -10832,6 +10856,7 @@ mod receipt_tests {
                 info_locked: false,
                 admin: false,
                 subject_generation: 0,
+                community: None,
             })
             .await;
         assert_eq!(
@@ -10863,6 +10888,7 @@ mod receipt_tests {
                 info_locked: false,
                 admin: false,
                 subject_generation: 0,
+                community: None,
             })
             .await;
         assert!(
@@ -10883,6 +10909,7 @@ mod receipt_tests {
                 info_locked: false,
                 admin: false,
                 subject_generation: 0,
+                community: None,
             })
             .await;
         assert!(
@@ -10939,6 +10966,7 @@ mod receipt_tests {
                 info_locked: true,
                 admin: true,
                 subject_generation: 0,
+                community: None,
             })
             .await;
         let row = worker.archive.chat(chat).unwrap().unwrap();
@@ -11072,6 +11100,7 @@ mod receipt_tests {
             info_locked: false,
             admin: false,
             subject_generation,
+            community: None,
         };
         worker
             .handle_command(Command::GroupEdited {
@@ -11371,7 +11400,7 @@ mod receipt_tests {
         static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let root =
-            std::env::temp_dir().join(format!("zapfast-worker-test-{}-{n}", std::process::id()));
+            std::env::temp_dir().join(format!("wavo-worker-test-{}-{n}", std::process::id()));
         let worker = Worker {
             privacy_ready: true,
             privacy_confirmed: true,
@@ -12309,7 +12338,7 @@ mod receipt_tests {
         };
         worker.store_message(picture.clone(), None, None);
         let chat = PEER.to_owned();
-        let downloaded = std::path::PathBuf::from("/tmp/zapfast-photo.jpg");
+        let downloaded = std::path::PathBuf::from("/tmp/wavo-photo.jpg");
         worker
             .archive
             .set_media_path(&chat, "photo", &downloaded)

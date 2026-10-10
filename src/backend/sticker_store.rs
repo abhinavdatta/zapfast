@@ -1,7 +1,7 @@
 //! Sticker files on disk: saved stickers and sticker packs.
 //!
 //! Saved stickers are WebP files named by their content hash. Every pack is a
-//! folder of WebP files under `packs/`. A pack put together in ZapFast is
+//! folder of WebP files under `packs/`. A pack put together in WAVO is
 //! marked local in its `pack.json` and names each file by its content hash, so
 //! a sticker belongs to a local pack by what it is, not where it came from:
 //! the same picture filed from Saved, Recent or another pack is one member,
@@ -21,7 +21,7 @@ const MANIFEST: &str = "pack.json";
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 struct Manifest {
     name: String,
-    /// Put together in ZapFast rather than imported.
+    /// Put together in WAVO rather than imported.
     #[serde(default)]
     local: bool,
     /// Creation time in Unix seconds, which orders local packs.
@@ -149,7 +149,7 @@ pub fn create_local_pack(root: &Path, name: &str, now: i64) -> Result<PathBuf, S
 pub fn set_member(pack: &Path, sticker: &Path, member: bool) -> Result<(), String> {
     let mut manifest = read_manifest(pack)
         .filter(|manifest| manifest.local)
-        .ok_or("Only packs made in ZapFast can change")?;
+        .ok_or("Only packs made in WAVO can change")?;
     let bytes = std::fs::read(sticker).map_err(|error| error.to_string())?;
     let file = format!("{}.webp", content_hash(&bytes));
     let target = pack.join(&file);

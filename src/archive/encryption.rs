@@ -29,9 +29,9 @@ pub(super) fn key_for(path: &Path) -> Result<Zeroizing<[u8; 32]>> {
     fs::create_dir_all(parent)?;
     let store = platform_store()?;
     let entry = store
-        .build("rocks.zapfast.ZapFast", &identity_for(parent)?, None)
+        .build("rocks.wavo.WAVO", &identity_for(parent)?, None)
         .map_err(keyring_error)
-        .context("The OS keyring could not open ZapFast's archive key")?;
+        .context("The OS keyring could not open WAVO's archive key")?;
     key_from_entry(path, &entry)
 }
 
@@ -62,9 +62,9 @@ fn copy_archive_key_in(
         return Ok(());
     }
     let old_entry = store
-        .build("rocks.zapfast.ZapFast", &identity_for(old_parent)?, None)
+        .build("rocks.wavo.WAVO", &identity_for(old_parent)?, None)
         .map_err(keyring_error)
-        .context("The OS keyring could not open ZapFast's archive key")?;
+        .context("The OS keyring could not open WAVO's archive key")?;
     let key = match old_entry.get_secret() {
         Ok(secret) => {
             ensure!(
@@ -83,13 +83,13 @@ fn copy_archive_key_in(
             return Ok(());
         }
         Err(error) => {
-            return Err(keyring_error(error)).context("Unlock your OS keyring and restart ZapFast");
+            return Err(keyring_error(error)).context("Unlock your OS keyring and restart WAVO");
         }
     };
     let new_entry = store
-        .build("rocks.zapfast.ZapFast", &identity_for(new_parent)?, None)
+        .build("rocks.wavo.WAVO", &identity_for(new_parent)?, None)
         .map_err(keyring_error)
-        .context("The OS keyring could not open ZapFast's archive key")?;
+        .context("The OS keyring could not open WAVO's archive key")?;
     new_entry
         .set_secret(key.as_ref())
         .map_err(keyring_error)
@@ -112,7 +112,7 @@ fn copy_archive_key_in(
 /// such as a removed account's. Never call it while the archive exists.
 pub fn forget_archive_key(identity: &str) -> Result<()> {
     let entry = platform_store()?
-        .build("rocks.zapfast.ZapFast", identity, None)
+        .build("rocks.wavo.WAVO", identity, None)
         .map_err(keyring_error)?;
     match entry.delete_credential() {
         Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
@@ -147,7 +147,7 @@ fn platform_store() -> Result<std::sync::Arc<dyn CredentialStoreApi>> {
     let store = windows_native_keyring_store::Store::new();
     Ok(store
         .map_err(keyring_error)
-        .context("Unlock your OS keyring and restart ZapFast")?
+        .context("Unlock your OS keyring and restart WAVO")?
         as std::sync::Arc<dyn CredentialStoreApi>)
 }
 
@@ -176,9 +176,7 @@ fn key_from_entry(path: &Path, entry: &keyring_core::Entry) -> Result<Zeroizing<
             );
             create_key(entry)
         }
-        Err(error) => {
-            Err(keyring_error(error)).context("Unlock your OS keyring and restart ZapFast")
-        }
+        Err(error) => Err(keyring_error(error)).context("Unlock your OS keyring and restart WAVO"),
     }
 }
 
@@ -355,7 +353,7 @@ mod tests {
         let directory = directory();
         let path = directory.path().join("archive.db");
         let store = keyring_core::mock::Store::new().unwrap();
-        let entry = store.build("zapfast-test", "archive", None).unwrap();
+        let entry = store.build("wavo-test", "archive", None).unwrap();
         let key = key_from_entry(&path, &entry).unwrap();
         assert_eq!(*key, *key_from_entry(&path, &entry).unwrap());
         let connection = open(&path, &key).unwrap();
@@ -450,7 +448,7 @@ mod tests {
             let path = directory.path().join("archive.db");
             let kept = directory.path().join("archive-unreadable.db");
             let store = keyring_core::mock::Store::new().unwrap();
-            let entry = store.build("zapfast-test", "archive", None).unwrap();
+            let entry = store.build("wavo-test", "archive", None).unwrap();
             let original_key = key_from_entry(&path, &entry).unwrap();
             let connection = open(&path, &original_key).unwrap();
             connection
@@ -481,7 +479,7 @@ mod tests {
         let directory = directory();
         let path = directory.path().join("archive.db");
         let store = keyring_core::mock::Store::new().unwrap();
-        let entry = store.build("zapfast-test", "archive", None).unwrap();
+        let entry = store.build("wavo-test", "archive", None).unwrap();
         entry.set_secret(&[]).unwrap();
         for contents in [b"".as_slice(), HEADER.as_slice()] {
             fs::write(&path, contents).unwrap();

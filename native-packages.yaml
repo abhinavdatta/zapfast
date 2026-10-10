@@ -10,41 +10,41 @@ libraries:
     deb: libasound2t64
     rpm: alsa-lib
 nfpm:
-  name: zapfast
+  name: wavo
   maintainer: Carmine Paolino <carmine@paolino.me>
-  homepage: https://zapfast.rocks
+  homepage: https://wavo.rocks
   description: Fast native WhatsApp client
   license: MIT
   provides: [fastsapp]
   conflicts: [fastsapp]
   replaces: [fastsapp]
   contents:
-  - src: "@PAYLOAD@/zapfast-v@VERSION@-@TARGET@/zapfast"
-    dst: "/usr/bin/zapfast"
+  - src: "@PAYLOAD@/wavo-v@VERSION@-@TARGET@/wavo"
+    dst: "/usr/bin/wavo"
     file_info:
       mode: 493
-  - src: "@PAYLOAD@/zapfast-v@VERSION@-@TARGET@/LICENSE"
-    dst: "/usr/share/licenses/zapfast/LICENSE"
+  - src: "@PAYLOAD@/wavo-v@VERSION@-@TARGET@/LICENSE"
+    dst: "/usr/share/licenses/wavo/LICENSE"
     file_info:
       mode: 420
-  - src: "@PAYLOAD@/zapfast-v@VERSION@-@TARGET@/README.md"
-    dst: "/usr/share/doc/zapfast/README.md"
+  - src: "@PAYLOAD@/wavo-v@VERSION@-@TARGET@/README.md"
+    dst: "/usr/share/doc/wavo/README.md"
     file_info:
       mode: 420
-  - src: "@PAYLOAD@/zapfast-v@VERSION@-@TARGET@/packaging/applications/zapfast.desktop"
-    dst: "/usr/share/applications/zapfast.desktop"
+  - src: "@PAYLOAD@/wavo-v@VERSION@-@TARGET@/packaging/applications/wavo.desktop"
+    dst: "/usr/share/applications/wavo.desktop"
     file_info:
       mode: 420
-  - src: "@PAYLOAD@/zapfast-v@VERSION@-@TARGET@/packaging/icons/zapfast.svg"
-    dst: "/usr/share/icons/hicolor/scalable/apps/zapfast.svg"
+  - src: "@PAYLOAD@/wavo-v@VERSION@-@TARGET@/packaging/icons/wavo.svg"
+    dst: "/usr/share/icons/hicolor/scalable/apps/wavo.svg"
     file_info:
       mode: 420
-  - src: contrib/omarchy/zapfast.json.tpl
-    dst: /usr/share/zapfast/omarchy/zapfast.json.tpl
+  - src: contrib/omarchy/wavo.json.tpl
+    dst: /usr/share/wavo/omarchy/wavo.json.tpl
     file_info:
       mode: 420
-  - src: contrib/omarchy/zapfast-theme
-    dst: /usr/share/zapfast/omarchy/zapfast-theme
+  - src: contrib/omarchy/wavo-theme
+    dst: /usr/share/wavo/omarchy/wavo-theme
     file_info:
       mode: 493
   overrides:
@@ -98,7 +98,7 @@ targets:
       local: dist/macos-input
     native:
       command: [ruby, packaging/macos/dmg.rb, '@PAYLOAD@', '@PACKAGE@']
-      output: 'zapfast-@TAG@-macos-universal.dmg'
+      output: 'wavo-@TAG@-macos-universal.dmg'
   linux-amd64:
     platform: linux
     arch: amd64
@@ -109,8 +109,8 @@ targets:
     - rpm
     - appimage
     input:
-      local: dist/zapfast-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
-      release_asset: zapfast-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
+      local: dist/wavo-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
+      release_asset: wavo-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
   linux-arm64:
     platform: linux
     arch: arm64
@@ -121,76 +121,76 @@ targets:
     - rpm
     - appimage
     input:
-      local: dist/zapfast-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
-      release_asset: zapfast-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
+      local: dist/wavo-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
+      release_asset: wavo-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
 release:
-  repository: crmne/zapfast
+  repository: abhinavdatta/wavo
   checksums: checksums.txt
   prereleases: true
 assets:
   AMD64:
-    file: zapfast-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
-    local: dist/zapfast-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
+    file: wavo-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
+    local: dist/wavo-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
   ARM64:
-    file: zapfast-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
-    local: dist/zapfast-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
+    file: wavo-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
+    local: dist/wavo-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
   MACOS:
-    file: zapfast-v@VERSION@-macos-universal.dmg
-    local: dist/zapfast-v@VERSION@-macos-universal.dmg
+    file: wavo-v@VERSION@-macos-universal.dmg
+    local: dist/wavo-v@VERSION@-macos-universal.dmg
   SOURCE:
-    file: zapfast-@VERSION@.tar.gz
-    url: https://github.com/crmne/zapfast/archive/refs/tags/v@VERSION@.tar.gz
+    file: wavo-@VERSION@.tar.gz
+    url: https://github.com/abhinavdatta/wavo/archive/refs/tags/v@VERSION@.tar.gz
     checksummed: false
-    local: dist/zapfast-@VERSION@.tar.gz
+    local: dist/wavo-@VERSION@.tar.gz
 templates:
-  homebrew/zapfast.rb: packaging/homebrew/zapfast.rb.in
-  arch/zapfast/PKGBUILD: packaging/arch/zapfast/PKGBUILD.in
-  arch/zapfast/zapfast.install: packaging/arch/zapfast.install
-  arch/zapfast-bin/PKGBUILD: packaging/arch/zapfast-bin/PKGBUILD.in
-  arch/zapfast-bin/zapfast-bin.install: packaging/arch/zapfast.install
-  arch/zapfast-git/PKGBUILD: packaging/arch/zapfast-git/PKGBUILD.in
-  arch/zapfast-git/zapfast-git.install: packaging/arch/zapfast.install
+  homebrew/wavo.rb: packaging/homebrew/wavo.rb.in
+  arch/wavo/PKGBUILD: packaging/arch/wavo/PKGBUILD.in
+  arch/wavo/wavo.install: packaging/arch/wavo.install
+  arch/wavo-bin/PKGBUILD: packaging/arch/wavo-bin/PKGBUILD.in
+  arch/wavo-bin/wavo-bin.install: packaging/arch/wavo.install
+  arch/wavo-git/PKGBUILD: packaging/arch/wavo-git/PKGBUILD.in
+  arch/wavo-git/wavo-git.install: packaging/arch/wavo.install
 repositories:
   homebrew:
-    url: https://github.com/crmne/homebrew-tap.git
-    push_url: https://github.com/crmne/homebrew-tap.git
+    url: https://github.com/abhinavdatta/homebrew-tap.git
+    push_url: https://github.com/abhinavdatta/homebrew-tap.git
     branch: main
     package_path: Casks
     files:
-      homebrew/zapfast.rb: Casks/zapfast.rb
-    version_file: Casks/zapfast.rb
+      homebrew/wavo.rb: Casks/wavo.rb
+    version_file: Casks/wavo.rb
     version_pattern: 'version "([^"]+)"'
     publish: push
   aur-source:
     group: aur
-    url: https://aur.archlinux.org/zapfast.git
-    push_url: ssh://aur@aur.archlinux.org/zapfast.git
+    url: https://aur.archlinux.org/wavo.git
+    push_url: ssh://aur@aur.archlinux.org/wavo.git
     branch: master
     package_path: "."
     files:
-      arch/zapfast: "."
+      arch/wavo: "."
     version_file: ".SRCINFO"
     version_pattern: "^\\s*pkgver = (\\S+)"
     publish: push
   aur-bin:
     group: aur
-    url: https://aur.archlinux.org/zapfast-bin.git
-    push_url: ssh://aur@aur.archlinux.org/zapfast-bin.git
+    url: https://aur.archlinux.org/wavo-bin.git
+    push_url: ssh://aur@aur.archlinux.org/wavo-bin.git
     branch: master
     package_path: "."
     files:
-      arch/zapfast-bin: "."
+      arch/wavo-bin: "."
     version_file: ".SRCINFO"
     version_pattern: "^\\s*pkgver = (\\S+)"
     publish: push
   aur-git:
     group: aur
-    url: https://aur.archlinux.org/zapfast-git.git
-    push_url: ssh://aur@aur.archlinux.org/zapfast-git.git
+    url: https://aur.archlinux.org/wavo-git.git
+    push_url: ssh://aur@aur.archlinux.org/wavo-git.git
     branch: master
     package_path: "."
     files:
-      arch/zapfast-git: "."
+      arch/wavo-git: "."
     version_file: ".SRCINFO"
     version_pattern: "^\\s*pkgver = (\\S+)"
     publish: push

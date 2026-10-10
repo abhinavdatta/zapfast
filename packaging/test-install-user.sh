@@ -14,7 +14,7 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
 
-fake="$work/zapfast-fake"
+fake="$work/wavo-fake"
 printf '#!/bin/sh\nexit 0\n' > "$fake"
 chmod +x "$fake"
 
@@ -36,12 +36,12 @@ check_prefix() {
   local prefix="$1"
   mkdir -p "$prefix"
   bash "$script_dir/install-user.sh" "$fake" "$prefix" >/dev/null
-  local entry="$prefix/share/applications/zapfast.desktop"
+  local entry="$prefix/share/applications/wavo.desktop"
   test -s "$entry"
-  test -s "$prefix/share/icons/hicolor/scalable/apps/zapfast.svg"
+  test -s "$prefix/share/icons/hicolor/scalable/apps/wavo.svg"
 
   local expected
-  expected=$(printf 'Exec="%s"' "$(escape_exec "${prefix}/bin/zapfast")")
+  expected=$(printf 'Exec="%s"' "$(escape_exec "${prefix}/bin/wavo")")
   grep -qxF "$expected" "$entry" || {
     echo "unexpected Exec for prefix: $prefix" >&2
     grep '^Exec=' "$entry" >&2
@@ -70,7 +70,7 @@ test ! -e "$work/elsewhere" || { echo "wrote into XDG_DATA_HOME despite a prefix
 
 # A relative prefix becomes absolute, since a launcher cannot resolve it.
 (cd "$work" && bash "$script_dir/install-user.sh" "$fake" relative >/dev/null)
-grep -qxF "Exec=\"$work/relative/bin/zapfast\"" "$work/relative/share/applications/zapfast.desktop" || {
+grep -qxF "Exec=\"$work/relative/bin/wavo\"" "$work/relative/share/applications/wavo.desktop" || {
   echo "a relative prefix left a relative Exec" >&2
   exit 1
 }

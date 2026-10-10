@@ -229,6 +229,39 @@ fn stamp_relative_to(locale: Locale, date: Date, today: Date, when: &Zoned) -> S
     }
 }
 
+/// Chat-list style stamp for roster rows: time today, weekday this week,
+/// date beyond it.
+pub fn list_time(unix_seconds: i64, _now: i64) -> String {
+    chat_stamp(crate::i18n::Locale::English, unix_seconds)
+}
+
+/// WhatsApp's status stamp: `Today at 6:06 PM`, `Yesterday at 11:07 PM`, or
+/// the date for anything older. Updates normally expire after a day, so the
+/// clock is what readers look for.
+pub fn relative_time(unix_seconds: i64) -> String {
+    let Some(when) = zoned(unix_seconds) else {
+        return String::new();
+    };
+    let days = today()
+        .since(when.date())
+        .map(|span| span.get_days())
+        .unwrap_or(i32::MAX);
+    match days {
+        0 => format!("Today at {}", hour_minute(&when)),
+        1 => format!("Yesterday at {}", hour_minute(&when)),
+        _ => short_date(crate::i18n::Locale::English, when.date()),
+    }
+}
+
+/// Display number for an id without a contact name: the phone number when
+/// the id is one, its user part otherwise.
+pub fn phone_or_id(id: &str) -> String {
+    match crate::model::phone_of(id) {
+        Some(digits) => phone(digits),
+        None => id.split('@').next().unwrap_or(id).to_owned(),
+    }
+}
+
 /// The first-name and last-name fields of the contact editor for a saved
 /// `name`, given the first name saved with it.
 ///
@@ -579,9 +612,9 @@ pub fn hue(seed: &str) -> f32 {
 }
 
 /// Embedded SVG app logo used across platform surfaces.
-const MARK: &[u8] = include_bytes!("../packaging/icons/zapfast.svg");
+const MARK: &[u8] = include_bytes!("../packaging/icons/wavo.svg");
 /// The same mark without its rim and shading, which blur below this size.
-const SMALL_MARK: &[u8] = include_bytes!("../packaging/icons/zapfast-small.svg");
+const SMALL_MARK: &[u8] = include_bytes!("../packaging/icons/wavo-small.svg");
 const SMALL_BELOW: usize = 40;
 
 /// Rasterizes the logo to straight-alpha RGBA.
@@ -765,7 +798,7 @@ mod tests {
     #[test]
     fn image_loader_reads_native_paths() {
         use egui::load::BytesPoll;
-        let dir = std::env::temp_dir().join(format!("zapfast-image-paths-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wavo-image-paths-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("猫 photo 100% #1.png");
         std::fs::write(&path, b"image bytes").unwrap();
